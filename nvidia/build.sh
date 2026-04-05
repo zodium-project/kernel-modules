@@ -40,6 +40,11 @@ KERNEL_VERSION="$(rpm -q kernel \
 [[ -n "$KERNEL_VERSION" ]] || fail "Could not detect kernel version"
 ok "Kernel version: ${KERNEL_VERSION}"
 
+# ── Install dnf5 plugins (required for config-manager) ───────
+info "Installing dnf5 plugins..."
+dnf install -y --setopt=install_weak_deps=False dnf5-plugins
+ok "dnf5 plugins installed"
+
 # ── Add negativo17 nvidia repo ────────────────────────────────
 info "Adding negativo17 NVIDIA repo..."
 dnf config-manager addrepo \
