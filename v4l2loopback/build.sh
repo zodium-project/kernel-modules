@@ -56,51 +56,51 @@ ok "Build dependencies installed"
 
 # ── Setup rpmbuild dirs ───────────────────────────────────────
 info "Setting up rpmbuild directories..."
-mkdir -p ~/rpmbuild/BUILD \
-          ~/rpmbuild/RPMS \
-          ~/rpmbuild/SOURCES \
-          ~/rpmbuild/SPECS \
-          ~/rpmbuild/SRPMS
+mkdir -p /root/rpmbuild/BUILD \
+          /root/rpmbuild/RPMS \
+          /root/rpmbuild/SOURCES \
+          /root/rpmbuild/SPECS \
+          /root/rpmbuild/SRPMS
 ok "rpmbuild directories ready"
 
 # ── Clone v4l2loopback source at latest release tag ───────────
 info "Cloning v4l2loopback ${V4L2LB_TAG}..."
 git clone --depth=1 --branch "${V4L2LB_TAG}" \
     https://github.com/v4l2loopback/v4l2loopback.git \
-    ~/rpmbuild/BUILD/v4l2loopback-${V4L2LB_VERSION}
+    /root/rpmbuild/BUILD/v4l2loopback-${V4L2LB_VERSION}
 ok "Source cloned"
 
 # ── Create source tarball ─────────────────────────────────────
 info "Creating source tarball..."
-tar -czf ~/rpmbuild/SOURCES/v4l2loopback-${V4L2LB_VERSION}.tar.gz \
-    -C ~/rpmbuild/BUILD v4l2loopback-${V4L2LB_VERSION}
+tar -czf /root/rpmbuild/SOURCES/v4l2loopback-${V4L2LB_VERSION}.tar.gz \
+    -C /root/rpmbuild/BUILD v4l2loopback-${V4L2LB_VERSION}
 ok "Source tarball created: v4l2loopback-${V4L2LB_VERSION}.tar.gz"
 
 # ── Copy spec ─────────────────────────────────────────────────
 info "Copying spec file..."
-cp /kmods-zodium/v4l2loopback/v4l2loopback.spec ~/rpmbuild/SPECS/
+cp /kmods-zodium/v4l2loopback/v4l2loopback.spec /root/rpmbuild/SPECS/
 ok "Spec file copied"
 
 # ── Build RPMs ────────────────────────────────────────────────
 info "Building RPMs..."
-rpmbuild -bb ~/rpmbuild/SPECS/v4l2loopback.spec \
+rpmbuild -bb /root/rpmbuild/SPECS/v4l2loopback.spec \
     --define "kernel_version ${KERNEL_VERSION}" \
     --define "kmod_version ${V4L2LB_VERSION}"
 ok "RPMs built"
 
 # ── Verify & list built RPMs ──────────────────────────────────
 info "Verifying built RPMs..."
-RPMS=("$(find ~/rpmbuild/RPMS -name '*.rpm')")
+RPMS=("$(find /root/rpmbuild/RPMS -name '*.rpm')")
 [[ ${#RPMS[@]} -gt 0 ]] || fail "No RPMs found after build"
 
 ok "Built RPMs:"
-for rpm in ~/rpmbuild/RPMS/**/*.rpm; do
+for rpm in /root/rpmbuild/RPMS/**/*.rpm; do
     say "  ${CYAN}◈${NC}  $(basename "$rpm")"
 done
 
 # ── Copy to output ────────────────────────────────────────────
 info "Copying RPMs to /output/..."
-cp ~/rpmbuild/RPMS/**/*.rpm /output/
+cp /root/rpmbuild/RPMS/**/*.rpm /output/
 ok "RPMs copied to /output/"
 
 say ""
