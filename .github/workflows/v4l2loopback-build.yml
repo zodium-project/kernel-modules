@@ -22,10 +22,14 @@ jobs:
       - name: Detect latest Fedora kernel
         id: detect
         run: |
-          KERNEL_VERSION="$(docker run --rm \
-            quay.io/fedora/fedora-bootc \
-            rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' \
-            | sort -V | tail -1)"
+          FEDORA_VERSION="$(curl -fLsS "https://endoflife.date/api/fedora.json" \
+            | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['cycle'])")"
+
+          KERNEL_VERSION="$(curl -fLsS "https://koji.fedoraproject.org/kojihub" \
+            -H "Content-Type: text/xml" \
+            -d "<?xml version=\"1.0\"?><methodCall><methodName>getLatestRPMS</methodName><params><param><value>f${FEDORA_VERSION}-updates</value></param><param><value>kernel</value></param></params></methodCall>" \
+            | grep -oP '<string>\K[^<]+' | grep '^kernel-[0-9]' | head -1 \
+            | sed 's/^kernel-//' | sed 's/$/.x86_64/')"
 
           [[ -n "$KERNEL_VERSION" ]] \
             || { echo "Failed to detect kernel version"; exit 1; }
