@@ -119,8 +119,7 @@ depmod -a %{kernel_version} || :
 
 # ── kmod ──────────────────────────────────────────────────────
 %files
-%license LICENSE
-%doc README.md
+%doc README.md COPYING
 %{kernel_mod_dir}/%{kmod_name}.ko
 
 # ── utils ─────────────────────────────────────────────────────
