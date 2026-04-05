@@ -26,6 +26,11 @@ say ""
 # ── Paths ─────────────────────────────────────────────────────
 BUILDROOT="/kmods-zodium/rpmbuild"
 
+# ── Upgrade system ────────────────────────────────────────────
+info "Upgrading system packages..."
+dnf upgrade -y
+ok "System upgraded"
+
 # ── Detect kernel version ─────────────────────────────────────
 info "Detecting latest kernel version..."
 KERNEL_VERSION="$(rpm -q kernel \
@@ -48,7 +53,7 @@ ok "v4l2loopback tag: ${V4L2LB_TAG} → RPM version: ${V4L2LB_VERSION}"
 # ── Install build dependencies ────────────────────────────────
 info "Installing build dependencies..."
 dnf install -y --setopt=install_weak_deps=False \
-    kernel-devel-${KERNEL_VERSION} \
+    "kernel-devel-matched-$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}' | sort -V | tail -1)" \
     gcc \
     make \
     rpm-build \
