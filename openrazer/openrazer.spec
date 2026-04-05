@@ -87,12 +87,15 @@ install -d %{buildroot}%{kernel_mod_dir}
 install -m 0644 driver/*.ko %{buildroot}%{kernel_mod_dir}/
 
 # ── udev rules + razer_mount helper script ────────────────────
+# root Makefile correctly forwards DESTDIR/PREFIX for udev_install
 # installs:
 #   %{_prefix}/lib/udev/rules.d/99-razer.rules
 #   %{_prefix}/lib/udev/razer_mount
 make udev_install DESTDIR=%{buildroot} PREFIX=%{_prefix} UDEV_PREFIX=%{_prefix}
 
 # ── daemon ────────────────────────────────────────────────────
+# call daemon/Makefile directly — root Makefile does not forward DESTDIR
+# to its sub-make, so calling via root would install to / not %{buildroot}
 # installs:
 #   %{_bindir}/openrazer-daemon
 #   %{_datadir}/openrazer/razer.conf.example
@@ -101,11 +104,12 @@ make udev_install DESTDIR=%{buildroot} PREFIX=%{_prefix} UDEV_PREFIX=%{_prefix}
 #   %{_mandir}/man5/razer.conf.5.gz
 #   %{_mandir}/man8/openrazer-daemon.8.gz
 #   + openrazer_daemon Python package via setup.py into site-packages
-make daemon_install DESTDIR=%{buildroot} PREFIX=%{_prefix}
+make -C daemon install DESTDIR=%{buildroot} PREFIX=%{_prefix}
 
 # ── Python library ────────────────────────────────────────────
+# call pylib/Makefile directly for same reason
 # installs openrazer Python package via setup.py into site-packages
-make python_library_install DESTDIR=%{buildroot} PREFIX=%{_prefix}
+make -C pylib install DESTDIR=%{buildroot} PREFIX=%{_prefix}
 
 # ================================================================
 #  Scripts
@@ -143,14 +147,15 @@ depmod -a %{kernel_version} || :
 
 # ── common — daemon + udev + pylib ───────────────────────────
 %files -n %{kmod_name}-kmod-common
-# daemon binary + example config
+# daemon binary
 %{_bindir}/openrazer-daemon
+# daemon data files (razer.conf.example)
 %{_datadir}/openrazer/
 # D-Bus session service activation file
 %{_datadir}/dbus-1/services/org.razer.service
 # systemd USER service (not system-wide)
 %{_prefix}/lib/systemd/user/openrazer-daemon.service
-# man pages
+# man pages (installed gzipped by daemon Makefile)
 %{_mandir}/man5/razer.conf.5*
 %{_mandir}/man8/openrazer-daemon.8*
 # udev rules + mount helper script
