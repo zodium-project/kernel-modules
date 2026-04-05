@@ -23,6 +23,9 @@ say "${MAGENTA}${BOLD}║   kmods-zodium                           ║${NC}"
 say "${MAGENTA}${BOLD}╚══════════════════════════════════════════╝${NC}"
 say ""
 
+# ── Paths ─────────────────────────────────────────────────────
+BUILDROOT="/kmods-zodium/rpmbuild"
+
 # ── Detect kernel version ─────────────────────────────────────
 info "Detecting latest kernel version..."
 KERNEL_VERSION="$(rpm -q kernel \
@@ -56,52 +59,59 @@ ok "Build dependencies installed"
 
 # ── Setup rpmbuild dirs ───────────────────────────────────────
 info "Setting up rpmbuild directories..."
-mkdir -p /root/rpmbuild/BUILD \
-          /root/rpmbuild/RPMS \
-          /root/rpmbuild/SOURCES \
-          /root/rpmbuild/SPECS \
-          /root/rpmbuild/SRPMS
+mkdir -p "${BUILDROOT}/BUILD" \
+         "${BUILDROOT}/RPMS" \
+         "${BUILDROOT}/SOURCES" \
+         "${BUILDROOT}/SPECS" \
+         "${BUILDROOT}/SRPMS"
 ok "rpmbuild directories ready"
 
-# ── Clone v4l2loopback source at latest release tag ───────────
+# ── Clone v4l2loopback source at latest tag ───────────────────
 info "Cloning v4l2loopback ${V4L2LB_TAG}..."
 git clone --depth=1 --branch "${V4L2LB_TAG}" \
     https://github.com/v4l2loopback/v4l2loopback.git \
-    /root/rpmbuild/BUILD/v4l2loopback-${V4L2LB_VERSION}
+    "${BUILDROOT}/BUILD/v4l2loopback-${V4L2LB_VERSION}"
 ok "Source cloned"
 
 # ── Create source tarball ─────────────────────────────────────
 info "Creating source tarball..."
-tar -czf /root/rpmbuild/SOURCES/v4l2loopback-${V4L2LB_VERSION}.tar.gz \
-    -C /root/rpmbuild/BUILD v4l2loopback-${V4L2LB_VERSION}
+tar -czf "${BUILDROOT}/SOURCES/v4l2loopback-${V4L2LB_VERSION}.tar.gz" \
+    -C "${BUILDROOT}/BUILD" v4l2loopback-${V4L2LB_VERSION}
 ok "Source tarball created: v4l2loopback-${V4L2LB_VERSION}.tar.gz"
 
 # ── Copy spec ─────────────────────────────────────────────────
 info "Copying spec file..."
-cp /kmods-zodium/v4l2loopback/v4l2loopback.spec /root/rpmbuild/SPECS/
+cp /kmods-zodium/v4l2loopback/v4l2loopback.spec "${BUILDROOT}/SPECS/"
 ok "Spec file copied"
 
 # ── Build RPMs ────────────────────────────────────────────────
 info "Building RPMs..."
-rpmbuild -bb /root/rpmbuild/SPECS/v4l2loopback.spec \
+rpmbuild -bb "${BUILDROOT}/SPECS/v4l2loopback.spec" \
+    --define "_topdir ${BUILDROOT}" \
     --define "kernel_version ${KERNEL_VERSION}" \
     --define "kmod_version ${V4L2LB_VERSION}"
 ok "RPMs built"
 
 # ── Verify & list built RPMs ──────────────────────────────────
 info "Verifying built RPMs..."
-RPMS=("$(find /root/rpmbuild/RPMS -name '*.rpm')")
+shopt -s globstar
+RPMS=("${BUILDROOT}"/RPMS/**/*.rpm)
 [[ ${#RPMS[@]} -gt 0 ]] || fail "No RPMs found after build"
 
 ok "Built RPMs:"
-for rpm in /root/rpmbuild/RPMS/**/*.rpm; do
+for rpm in "${RPMS[@]}"; do
     say "  ${CYAN}◈${NC}  $(basename "$rpm")"
 done
 
 # ── Copy to output ────────────────────────────────────────────
 info "Copying RPMs to /output/..."
-cp /root/rpmbuild/RPMS/**/*.rpm /output/
+cp "${RPMS[@]}" /output/
 ok "RPMs copied to /output/"
+
+# ── Cleanup ───────────────────────────────────────────────────
+info "Cleaning up build directory..."
+rm -rf "${BUILDROOT}"
+ok "Cleanup complete"
 
 say ""
 say "${MAGENTA}${BOLD}╔══════════════════════════════════════════════════╗${NC}"
