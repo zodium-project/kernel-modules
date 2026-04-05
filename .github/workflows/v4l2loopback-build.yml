@@ -1,0 +1,148 @@
+# ================================================================
+#  kmods-zodium — nightly kmod build & release workflow
+#  github.com/zodium-project/kmods-zodium
+# ================================================================
+
+name: Build kmods
+
+on:
+  schedule:
+    - cron: '0 2 * * *'        # nightly at 02:00 UTC
+  workflow_dispatch:             # manual trigger anytime
+
+jobs:
+  # ── Detect latest Fedora kernel version ─────────────────────
+  detect-kernel:
+    name: Detect kernel version
+    runs-on: ubuntu-latest
+    outputs:
+      kernel_version: ${{ steps.detect.outputs.kernel_version }}
+
+    steps:
+      - name: Detect latest Fedora kernel
+        id: detect
+        run: |
+          KERNEL_VERSION="$(docker run --rm \
+            quay.io/fedora/fedora-bootc \
+            rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' \
+            | sort -V | tail -1)"
+
+          [[ -n "$KERNEL_VERSION" ]] \
+            || { echo "Failed to detect kernel version"; exit 1; }
+
+          echo "kernel_version=${KERNEL_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Detected kernel: ${KERNEL_VERSION}"
+
+  # ── Build kmods ──────────────────────────────────────────────
+  build:
+    name: Build ${{ matrix.kmod }}
+    runs-on: ubuntu-latest
+    needs: detect-kernel
+    permissions:
+      contents: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        kmod: [v4l2loopback]
+
+    steps:
+      - name: Checkout kmods-zodium
+        uses: actions/checkout@v4
+
+      - name: Check if rebuild needed
+        id: check
+        env:
+          KERNEL_VERSION: ${{ needs.detect-kernel.outputs.kernel_version }}
+          KMOD: ${{ matrix.kmod }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RELEASE_TAG="${KMOD}-${KERNEL_VERSION}"
+
+          STATUS="$(gh release view "${RELEASE_TAG}" \
+            --repo ${{ github.repository }} \
+            --json tagName \
+            -q '.tagName' 2>/dev/null || echo 'not_found')"
+
+          if [[ "$STATUS" == "$RELEASE_TAG" ]]; then
+            echo "Release ${RELEASE_TAG} already exists, skipping build"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Release ${RELEASE_TAG} not found, proceeding with build"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Create output directory
+        if: steps.check.outputs.skip == 'false'
+        run: mkdir -p output
+
+      - name: Build ${{ matrix.kmod }} RPMs
+        if: steps.check.outputs.skip == 'false'
+        env:
+          KERNEL_VERSION: ${{ needs.detect-kernel.outputs.kernel_version }}
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/${{ matrix.kmod }}:/kmods-zodium/${{ matrix.kmod }}:ro" \
+            -v "${{ github.workspace }}/output:/output" \
+            -e KERNEL_VERSION="${KERNEL_VERSION}" \
+            quay.io/fedora/fedora-bootc \
+            bash /kmods-zodium/${{ matrix.kmod }}/build.sh
+
+      - name: Verify RPMs
+        if: steps.check.outputs.skip == 'false'
+        run: |
+          echo "Built RPMs:"
+          ls -lh output/
+          [[ "$(ls output/*.rpm 2>/dev/null | wc -l)" -gt 0 ]] \
+            || { echo "No RPMs found in output/"; exit 1; }
+
+          # verify expected packages are present
+          ls output/kmod-${{ matrix.kmod }}-*.rpm \
+            || { echo "kmod package missing"; exit 1; }
+          ls output/${{ matrix.kmod }}-kmod-common-utils-*.rpm \
+            || { echo "utils package missing"; exit 1; }
+          ls output/${{ matrix.kmod }}-kmod-common-devel-*.rpm \
+            || { echo "devel package missing"; exit 1; }
+
+      - name: Create GitHub Release
+        if: steps.check.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KERNEL_VERSION: ${{ needs.detect-kernel.outputs.kernel_version }}
+          KMOD: ${{ matrix.kmod }}
+        run: |
+          RELEASE_TAG="${{ steps.check.outputs.release_tag }}"
+
+          # detect kmod version from built RPM filename
+          KMOD_VERSION="$(ls output/kmod-${KMOD}-*.rpm \
+            | head -1 \
+            | grep -oP '(?<=-)[0-9]+\.[0-9]+\.[0-9]+(?=-)' \
+            | head -1)"
+
+          gh release create "${RELEASE_TAG}" \
+            --repo ${{ github.repository }} \
+            --title "${KMOD} — kernel ${KERNEL_VERSION}" \
+            --notes "## kmods-zodium nightly build
+
+          **kmod:** \`${KMOD}\`
+          **kmod version:** \`${KMOD_VERSION}\`
+          **kernel:** \`${KERNEL_VERSION}\`
+          **built:** \`$(date -u '+%Y-%m-%d %H:%M UTC')\`
+
+          ### Packages
+          \`\`\`
+          kmod-${KMOD}-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm     # kernel module
+          ${KMOD}-kmod-common-utils-${KMOD_VERSION}-1.rpm           # userspace utils
+          ${KMOD}-kmod-common-devel-${KMOD_VERSION}-1.rpm           # headers
+          \`\`\`
+
+          ### Install in zcore
+          \`\`\`dockerfile
+          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-${KMOD}-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/${KMOD}-kmod.rpm \\
+              && dnf install -y /tmp/${KMOD}-kmod.rpm \\
+              && rm /tmp/${KMOD}-kmod.rpm
+          \`\`\`" \
+            output/*.rpm
+
+          echo "Release ${RELEASE_TAG} created successfully"
