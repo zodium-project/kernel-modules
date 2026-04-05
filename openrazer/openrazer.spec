@@ -135,7 +135,7 @@ depmod -a %{kernel_version} || :
 
 # ── kmod — 4 razer kernel modules ────────────────────────────
 %files
-%doc README.md COPYING
+%doc README.md
 %{kernel_mod_dir}/razerkbd.ko
 %{kernel_mod_dir}/razermouse.ko
 %{kernel_mod_dir}/razerkraken.ko
