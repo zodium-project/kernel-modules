@@ -48,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kmod: [v4l2loopback, openrazer, nvidia]
+        kmod: [v4l2loopback, openrazer, nvidia, xpadneo, xone]
 
     steps:
       - name: Checkout kmods-zodium
@@ -125,6 +125,18 @@ jobs:
               || { echo "kmod-nvidia package missing"; exit 1; }
           fi
 
+          # ── xpadneo expected packages ────────────────────────
+          if [[ "${{ matrix.kmod }}" == "xpadneo" ]]; then
+            ls output/kmod-xpadneo-*.rpm \
+              || { echo "kmod-xpadneo package missing"; exit 1; }
+          fi
+
+          # ── xone expected packages ───────────────────────────
+          if [[ "${{ matrix.kmod }}" == "xone" ]]; then
+            ls output/kmod-xone-*.rpm \
+              || { echo "kmod-xone package missing"; exit 1; }
+          fi
+
       - name: Create GitHub Release
         if: steps.check.outputs.skip == 'false'
         env:
@@ -134,36 +146,21 @@ jobs:
         run: |
           RELEASE_TAG="${{ steps.check.outputs.release_tag }}"
 
-          # detect kmod version from built RPM filename
           KMOD_VERSION="$(ls output/kmod-${KMOD}-*.rpm \
             | head -1 \
             | grep -oP '(?<=-)[0-9]+\.[0-9]+\.[0-9]+(?=-)' \
             | tail -1)"
 
-          # ── build release notes per kmod ────────────────────
           if [[ "${KMOD}" == "v4l2loopback" ]]; then
             PACKAGES="\`\`\`
           kmod-${KMOD}-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm     # kernel module
           ${KMOD}-kmod-common-utils-${KMOD_VERSION}-1.rpm           # userspace utils
           ${KMOD}-kmod-common-devel-${KMOD_VERSION}-1.rpm           # headers
           \`\`\`"
-
             INSTALL_SNIPPET="\`\`\`dockerfile
           RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-${KMOD}-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/${KMOD}-kmod.rpm \\
               && dnf install -y /tmp/${KMOD}-kmod.rpm \\
               && rm /tmp/${KMOD}-kmod.rpm
-          \`\`\`"
-          fi
-
-          if [[ "${KMOD}" == "nvidia" ]]; then
-            PACKAGES="\`\`\`
-          kmod-nvidia-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm      # kernel modules
-          \`\`\`"
-
-            INSTALL_SNIPPET="\`\`\`dockerfile
-          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-nvidia-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-nvidia.rpm \\
-              && dnf install -y /tmp/kmod-nvidia.rpm \\
-              && rm /tmp/kmod-nvidia.rpm
           \`\`\`"
           fi
 
@@ -172,12 +169,44 @@ jobs:
           kmod-${KMOD}-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm      # kernel modules
           ${KMOD}-kmod-common-${KMOD_VERSION}-1.rpm                  # daemon + udev + pylib
           \`\`\`"
-
             INSTALL_SNIPPET="\`\`\`dockerfile
           RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-${KMOD}-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/${KMOD}-kmod.rpm \\
               && curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/${KMOD}-kmod-common-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).noarch.rpm -o /tmp/${KMOD}-common.rpm \\
               && dnf install -y /tmp/${KMOD}-kmod.rpm /tmp/${KMOD}-common.rpm \\
               && rm /tmp/${KMOD}-*.rpm
+          \`\`\`"
+          fi
+
+          if [[ "${KMOD}" == "nvidia" ]]; then
+            PACKAGES="\`\`\`
+          kmod-nvidia-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm       # kernel modules
+          \`\`\`"
+            INSTALL_SNIPPET="\`\`\`dockerfile
+          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-nvidia-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-nvidia.rpm \\
+              && dnf install -y /tmp/kmod-nvidia.rpm \\
+              && rm /tmp/kmod-nvidia.rpm
+          \`\`\`"
+          fi
+
+          if [[ "${KMOD}" == "xpadneo" ]]; then
+            PACKAGES="\`\`\`
+          kmod-xpadneo-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm      # kernel module
+          \`\`\`"
+            INSTALL_SNIPPET="\`\`\`dockerfile
+          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-xpadneo-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-xpadneo.rpm \\
+              && dnf install -y /tmp/kmod-xpadneo.rpm \\
+              && rm /tmp/kmod-xpadneo.rpm
+          \`\`\`"
+          fi
+
+          if [[ "${KMOD}" == "xone" ]]; then
+            PACKAGES="\`\`\`
+          kmod-xone-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm         # kernel module
+          \`\`\`"
+            INSTALL_SNIPPET="\`\`\`dockerfile
+          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-xone-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-xone.rpm \\
+              && dnf install -y /tmp/kmod-xone.rpm \\
+              && rm /tmp/kmod-xone.rpm
           \`\`\`"
           fi
 
