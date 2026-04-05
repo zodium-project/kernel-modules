@@ -48,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kmod: [v4l2loopback]
+        kmod: [v4l2loopback, openrazer]
 
     steps:
       - name: Checkout kmods-zodium
@@ -101,13 +101,23 @@ jobs:
           [[ "$(ls output/*.rpm 2>/dev/null | wc -l)" -gt 0 ]] \
             || { echo "No RPMs found in output/"; exit 1; }
 
-          # verify expected packages are present
-          ls output/kmod-${{ matrix.kmod }}-*.rpm \
-            || { echo "kmod package missing"; exit 1; }
-          ls output/${{ matrix.kmod }}-kmod-common-utils-*.rpm \
-            || { echo "utils package missing"; exit 1; }
-          ls output/${{ matrix.kmod }}-kmod-common-devel-*.rpm \
-            || { echo "devel package missing"; exit 1; }
+          # ── v4l2loopback expected packages ──────────────────
+          if [[ "${{ matrix.kmod }}" == "v4l2loopback" ]]; then
+            ls output/kmod-${{ matrix.kmod }}-*.rpm \
+              || { echo "kmod package missing"; exit 1; }
+            ls output/${{ matrix.kmod }}-kmod-common-utils-*.rpm \
+              || { echo "utils package missing"; exit 1; }
+            ls output/${{ matrix.kmod }}-kmod-common-devel-*.rpm \
+              || { echo "devel package missing"; exit 1; }
+          fi
+
+          # ── openrazer expected packages ─────────────────────
+          if [[ "${{ matrix.kmod }}" == "openrazer" ]]; then
+            ls output/kmod-${{ matrix.kmod }}-*.rpm \
+              || { echo "kmod package missing"; exit 1; }
+            ls output/${{ matrix.kmod }}-kmod-common-*.rpm \
+              || { echo "common package missing"; exit 1; }
+          fi
 
       - name: Create GitHub Release
         if: steps.check.outputs.skip == 'false'
@@ -124,6 +134,35 @@ jobs:
             | grep -oP '(?<=-)[0-9]+\.[0-9]+\.[0-9]+(?=-)' \
             | tail -1)"
 
+          # ── build release notes per kmod ────────────────────
+          if [[ "${KMOD}" == "v4l2loopback" ]]; then
+            PACKAGES="\`\`\`
+          kmod-${KMOD}-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm     # kernel module
+          ${KMOD}-kmod-common-utils-${KMOD_VERSION}-1.rpm           # userspace utils
+          ${KMOD}-kmod-common-devel-${KMOD_VERSION}-1.rpm           # headers
+          \`\`\`"
+
+            INSTALL_SNIPPET="\`\`\`dockerfile
+          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-${KMOD}-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/${KMOD}-kmod.rpm \\
+              && dnf install -y /tmp/${KMOD}-kmod.rpm \\
+              && rm /tmp/${KMOD}-kmod.rpm
+          \`\`\`"
+          fi
+
+          if [[ "${KMOD}" == "openrazer" ]]; then
+            PACKAGES="\`\`\`
+          kmod-${KMOD}-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm      # kernel modules
+          ${KMOD}-kmod-common-${KMOD_VERSION}-1.rpm                  # daemon + udev + pylib
+          \`\`\`"
+
+            INSTALL_SNIPPET="\`\`\`dockerfile
+          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-${KMOD}-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/${KMOD}-kmod.rpm \\
+              && curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/${KMOD}-kmod-common-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).noarch.rpm -o /tmp/${KMOD}-common.rpm \\
+              && dnf install -y /tmp/${KMOD}-kmod.rpm /tmp/${KMOD}-common.rpm \\
+              && rm /tmp/${KMOD}-*.rpm
+          \`\`\`"
+          fi
+
           gh release create "${RELEASE_TAG}" \
             --repo ${{ github.repository }} \
             --title "${KMOD} — kernel ${KERNEL_VERSION}" \
@@ -135,18 +174,10 @@ jobs:
           **built:** \`$(date -u '+%Y-%m-%d %H:%M UTC')\`
 
           ### Packages
-          \`\`\`
-          kmod-${KMOD}-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm     # kernel module
-          ${KMOD}-kmod-common-utils-${KMOD_VERSION}-1.rpm           # userspace utils
-          ${KMOD}-kmod-common-devel-${KMOD_VERSION}-1.rpm           # headers
-          \`\`\`
+          ${PACKAGES}
 
           ### Install in zcore
-          \`\`\`dockerfile
-          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-${KMOD}-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/${KMOD}-kmod.rpm \\
-              && dnf install -y /tmp/${KMOD}-kmod.rpm \\
-              && rm /tmp/${KMOD}-kmod.rpm
-          \`\`\`" \
+          ${INSTALL_SNIPPET}" \
             output/*.rpm
 
           echo "Release ${RELEASE_TAG} created successfully"

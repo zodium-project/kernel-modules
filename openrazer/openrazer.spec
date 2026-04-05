@@ -1,0 +1,173 @@
+# ================================================================
+#  openrazer — RPM spec
+#  kmods-zodium : github.com/zodium-project/kmods-zodium
+# ================================================================
+
+# ── Disable debug package ─────────────────────────────────────
+%global debug_package %{nil}
+
+%define kmod_name       openrazer
+%define kernel_mod_dir  /usr/lib/modules/%{kernel_version}/extra/%{kmod_name}
+
+# ================================================================
+#  kmod package — kernel modules only
+#  name includes kernel version per kmod naming convention
+# ================================================================
+Name:           kmod-%{kmod_name}-%{kernel_version}
+Version:        %{kmod_version}
+Release:        1%{?dist}
+Summary:        OpenRazer Razer hardware kernel modules for %{kernel_version}
+License:        GPL-2.0-only
+URL:            https://github.com/openrazer/openrazer
+Source0:        %{kmod_name}-%{kmod_version}.tar.gz
+
+BuildRequires:  kernel-devel
+BuildRequires:  gcc
+BuildRequires:  make
+
+Requires:       kernel
+Requires:       %{kmod_name}-kmod-common = %{kmod_version}
+
+%description
+OpenRazer kernel modules built for kernel %{kernel_version}.
+Provides HID drivers for Razer peripherals (keyboard, mouse, kraken headset,
+and accessories) via razerkbd, razermouse, razerkraken, razeraccessory.
+Built by kmods-zodium for the Zodium Project / zcore Linux.
+
+# ================================================================
+#  common subpackage — daemon, udev rules, plugdev group, Python library
+#  no kernel version in name, stable across kernel updates
+# ================================================================
+%package -n %{kmod_name}-kmod-common
+Summary:        OpenRazer daemon, udev rules and Python library
+License:        GPL-2.0-only
+# ── runtime deps (daemon — from daemon/setup.py install_requires) ─
+Requires:       python3
+Requires:       python3-daemonize
+Requires:       python3-dbus
+Requires:       python3-gobject
+Requires:       python3-pyudev
+Requires:       python3-setproctitle
+Requires:       xautomation
+# ── runtime deps (pylib — from pylib/setup.py install_requires) ──
+Requires:       python3-numpy
+# ── build deps (needed for setup.py install at rpmbuild time) ────
+BuildRequires:  python3
+BuildRequires:  python3-setuptools
+BuildRequires:  python3-dbus
+BuildRequires:  python3-gobject
+BuildRequires:  python3-pyudev
+
+%description -n %{kmod_name}-kmod-common
+OpenRazer userspace components: daemon (openrazerd), udev rules for Razer
+hardware access, plugdev group setup, and the Python library for controlling
+Razer peripherals.
+
+# ================================================================
+#  Prep
+# ================================================================
+%prep
+%setup -q -n %{kmod_name}-%{kmod_version}
+
+# ================================================================
+#  Build
+# ================================================================
+%build
+# ── kernel modules ────────────────────────────────────────────
+# builds: razerkbd.ko razermouse.ko razerkraken.ko razeraccessory.ko
+make -j%(nproc) driver KERNELDIR=/usr/src/kernels/%{kernel_version}
+
+# ================================================================
+#  Install
+# ================================================================
+%install
+
+# ── kmod — copy all 4 .ko files to extra/openrazer/ ──────────
+install -d %{buildroot}%{kernel_mod_dir}
+install -m 0644 driver/*.ko %{buildroot}%{kernel_mod_dir}/
+
+# ── udev rules + razer_mount helper script ────────────────────
+# installs:
+#   %{_prefix}/lib/udev/rules.d/99-razer.rules
+#   %{_prefix}/lib/udev/razer_mount
+make udev_install DESTDIR=%{buildroot} PREFIX=%{_prefix} UDEV_PREFIX=%{_prefix}
+
+# ── daemon ────────────────────────────────────────────────────
+# installs:
+#   %{_bindir}/openrazer-daemon
+#   %{_datadir}/openrazer/razer.conf.example
+#   %{_datadir}/dbus-1/services/org.razer.service
+#   %{_prefix}/lib/systemd/user/openrazer-daemon.service
+#   %{_mandir}/man5/razer.conf.5.gz
+#   %{_mandir}/man8/openrazer-daemon.8.gz
+#   + openrazer_daemon Python package via setup.py into site-packages
+make daemon_install DESTDIR=%{buildroot} PREFIX=%{_prefix}
+
+# ── Python library ────────────────────────────────────────────
+# installs openrazer Python package via setup.py into site-packages
+make python_library_install DESTDIR=%{buildroot} PREFIX=%{_prefix}
+
+# ================================================================
+#  Scripts
+# ================================================================
+
+# ── Ensure plugdev group exists before udev rules land ────────
+%pre -n %{kmod_name}-kmod-common
+getent group plugdev > /dev/null || groupadd -r plugdev
+:
+
+# ── Reload udev rules after install ───────────────────────────
+%post -n %{kmod_name}-kmod-common
+udevadm control --reload-rules 2>/dev/null || :
+udevadm trigger            2>/dev/null || :
+
+# ── depmod on kmod install ────────────────────────────────────
+%post
+depmod -a %{kernel_version} || :
+
+# ── depmod on kmod uninstall ──────────────────────────────────
+%postun
+depmod -a %{kernel_version} || :
+
+# ================================================================
+#  Files
+# ================================================================
+
+# ── kmod — 4 razer kernel modules ────────────────────────────
+%files
+%doc README.md COPYING
+%{kernel_mod_dir}/razerkbd.ko
+%{kernel_mod_dir}/razermouse.ko
+%{kernel_mod_dir}/razerkraken.ko
+%{kernel_mod_dir}/razeraccessory.ko
+
+# ── common — daemon + udev + pylib ───────────────────────────
+%files -n %{kmod_name}-kmod-common
+# daemon binary + example config
+%{_bindir}/openrazer-daemon
+%{_datadir}/openrazer/
+# D-Bus session service activation file
+%{_datadir}/dbus-1/services/org.razer.service
+# systemd USER service (not system-wide)
+%{_prefix}/lib/systemd/user/openrazer-daemon.service
+# man pages
+%{_mandir}/man5/razer.conf.5*
+%{_mandir}/man8/openrazer-daemon.8*
+# udev rules + mount helper script
+%{_prefix}/lib/udev/rules.d/99-razer.rules
+%{_prefix}/lib/udev/razer_mount
+# Python packages installed by setup.py:
+#   daemon/setup.py  → name="openrazer_daemon"  → openrazer_daemon/
+#   pylib/setup.py   → name="openrazer"          → openrazer/
+%{python3_sitelib}/openrazer/
+%{python3_sitelib}/openrazer_daemon/
+%{python3_sitelib}/openrazer*.egg-info/
+%{python3_sitelib}/openrazer_daemon*.egg-info/
+
+# ================================================================
+#  Changelog
+# ================================================================
+%changelog
+* %(date "+%a %b %d %Y") kmods-zodium <zodium-project> - %{kmod_version}-1
+- Automated nightly build by kmods-zodium
+- Kernel: %{kernel_version}
