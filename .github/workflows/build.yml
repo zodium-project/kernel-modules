@@ -48,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kmod: [v4l2loopback, openrazer, nvidia, xpadneo, xone, wl, evdi, hid-fanatecff, openzfs]
+        kmod: [v4l2loopback, openrazer, nvidia, xpadneo, xone, wl, evdi, hid-fanatecff, sc0710, openzfs]
 
     steps:
       - name: Checkout kmods-zodium
@@ -153,6 +153,12 @@ jobs:
           if [[ "${{ matrix.kmod }}" == "hid-fanatecff" ]]; then
             ls output/kmod-hid-fanatecff-*.rpm \
               || { echo "kmod-hid-fanatecff package missing"; exit 1; }
+          fi
+
+          # ── sc0710 expected packages ─────────────────────────
+          if [[ "${{ matrix.kmod }}" == "sc0710" ]]; then
+            ls output/kmod-sc0710-*.rpm \
+              || { echo "kmod-sc0710 package missing"; exit 1; }
           fi
 
           # ── openzfs expected packages ────────────────────────
@@ -284,6 +290,17 @@ jobs:
           RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-hid-fanatecff-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-hid-fanatecff.rpm \\
               && dnf install -y /tmp/kmod-hid-fanatecff.rpm \\
               && rm /tmp/kmod-hid-fanatecff.rpm
+          \`\`\`"
+          fi
+
+          if [[ "${KMOD}" == "sc0710" ]]; then
+            PACKAGES="\`\`\`
+          kmod-sc0710-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm     # kernel module
+          \`\`\`"
+            INSTALL_SNIPPET="\`\`\`dockerfile
+          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-sc0710-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-sc0710.rpm \\
+              && dnf install -y /tmp/kmod-sc0710.rpm \\
+              && rm /tmp/kmod-sc0710.rpm
           \`\`\`"
           fi
 
