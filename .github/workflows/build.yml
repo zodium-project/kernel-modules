@@ -48,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kmod: [v4l2loopback, openrazer, nvidia, xpadneo, xone, wl, evdi, openzfs]
+        kmod: [v4l2loopback, openrazer, nvidia, xpadneo, xone, wl, evdi, hid-fanatecff, openzfs]
 
     steps:
       - name: Checkout kmods-zodium
@@ -149,6 +149,12 @@ jobs:
               || { echo "kmod-evdi package missing"; exit 1; }
           fi
 
+          # ── hid-fanatecff expected packages ─────────────────
+          if [[ "${{ matrix.kmod }}" == "hid-fanatecff" ]]; then
+            ls output/kmod-hid-fanatecff-*.rpm \
+              || { echo "kmod-hid-fanatecff package missing"; exit 1; }
+          fi
+
           # ── openzfs expected packages ────────────────────────
           if [[ "${{ matrix.kmod }}" == "openzfs" ]]; then
             ls output/kmod-zfs-*.rpm \
@@ -176,6 +182,17 @@ jobs:
         run: |
           RELEASE_TAG="${{ steps.check.outputs.release_tag }}"
 
+          if [[ "${KMOD}" == "hid-fanatecff" ]]; then
+            PACKAGES="\`\`\`
+          kmod-hid-fanatecff-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm  # kernel module
+          \`\`\`"
+            INSTALL_SNIPPET="\`\`\`dockerfile
+          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-hid-fanatecff-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-hid-fanatecff.rpm \\
+              && dnf install -y /tmp/kmod-hid-fanatecff.rpm \\
+              && rm /tmp/kmod-hid-fanatecff.rpm
+          \`\`\`"
+          fi
+          
           # ── version extraction (openzfs uses different naming) ─
           if [[ "${KMOD}" == "openzfs" ]]; then
             KMOD_VERSION="$(ls output/kmod-zfs-*.rpm \
