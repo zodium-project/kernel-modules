@@ -111,6 +111,13 @@ for rpm in "${RPMS[@]}"; do
     say "  ${CYAN}◈${NC}  $(basename "$rpm")"
 done
 
+# ── Download companion packages ───────────────────────────────
+info "Downloading evdi companion packages..."
+dnf download -y --destdir /output/ \
+    libevdi \
+    displaylink
+ok "Companion packages downloaded"
+
 # ── Copy to output ────────────────────────────────────────────
 info "Copying RPMs to /output/..."
 cp "${RPMS[@]}" /output/

@@ -94,6 +94,13 @@ for rpm in "${RPMS[@]}"; do
     say "  ${CYAN}◈${NC}  $(basename "$rpm")"
 done
 
+# ── Download companion packages ───────────────────────────────
+info "Downloading hid-tmff2 companion packages..."
+dnf download -y --destdir /output/ \
+    hid-tmff2 \
+    hid-tmff2-akmod-modules
+ok "Companion packages downloaded"
+
 # ── Copy to output ────────────────────────────────────────────
 info "Copying RPMs to /output/..."
 cp "${RPMS[@]}" /output/

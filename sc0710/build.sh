@@ -94,6 +94,12 @@ for rpm in "${RPMS[@]}"; do
     say "  ${CYAN}◈${NC}  $(basename "$rpm")"
 done
 
+# ── Download companion packages ───────────────────────────────
+info "Downloading sc0710 companion packages..."
+dnf download -y --destdir /output/ \
+    sc0710
+ok "Companion packages downloaded"
+
 # ── Copy to output ────────────────────────────────────────────
 info "Copying RPMs to /output/..."
 cp "${RPMS[@]}" /output/

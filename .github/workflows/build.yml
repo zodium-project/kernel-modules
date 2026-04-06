@@ -123,54 +123,80 @@ jobs:
           if [[ "${{ matrix.kmod }}" == "nvidia" ]]; then
             ls output/kmod-nvidia-*.rpm \
               || { echo "kmod-nvidia package missing"; exit 1; }
+            ls output/nvidia-kmod-common-*.rpm \
+              || { echo "nvidia companion package missing"; exit 1; }
           fi
 
           # ── xpadneo expected packages ────────────────────────
           if [[ "${{ matrix.kmod }}" == "xpadneo" ]]; then
             ls output/kmod-xpadneo-*.rpm \
               || { echo "kmod-xpadneo package missing"; exit 1; }
+            ls output/xpadneo-kmod-common-*.rpm \
+              || { echo "xpadneo companion package missing"; exit 1; }
           fi
 
           # ── xone expected packages ───────────────────────────
           if [[ "${{ matrix.kmod }}" == "xone" ]]; then
             ls output/kmod-xone-*.rpm \
               || { echo "kmod-xone package missing"; exit 1; }
+            ls output/xone-kmod-common-*.rpm \
+              || { echo "xone companion package missing"; exit 1; }
           fi
 
           # ── wl expected packages ─────────────────────────────
           if [[ "${{ matrix.kmod }}" == "wl" ]]; then
             ls output/kmod-wl-*.rpm \
               || { echo "kmod-wl package missing"; exit 1; }
+            ls output/broadcom-wl-*.rpm \
+              || { echo "kmod-wl companion package missing"; exit 1; }
           fi
 
           # ── evdi expected packages ───────────────────────────
           if [[ "${{ matrix.kmod }}" == "evdi" ]]; then
             ls output/kmod-evdi-*.rpm \
               || { echo "kmod-evdi package missing"; exit 1; }
+            ls output/libevdi-*.rpm \
+              || { echo "libevdi package missing"; exit 1; }
+            ls output/displaylink-*.rpm \
+              || { echo "displaylink package missing"; exit 1; }
           fi
 
           # ── hid-fanatecff expected packages ─────────────────
           if [[ "${{ matrix.kmod }}" == "hid-fanatecff" ]]; then
             ls output/kmod-hid-fanatecff-*.rpm \
               || { echo "kmod-hid-fanatecff package missing"; exit 1; }
+            ls output/hid-fanatecff-*.rpm \
+              || { echo "hid-fanatecff companion package missing"; exit 1; }
+            ls output/hid-fanatecff-akmod-modules-*.rpm \
+              || { echo "hid-fanatecff-akmod-modules package missing"; exit 1; }
           fi
 
           # ── sc0710 expected packages ─────────────────────────
           if [[ "${{ matrix.kmod }}" == "sc0710" ]]; then
             ls output/kmod-sc0710-*.rpm \
               || { echo "kmod-sc0710 package missing"; exit 1; }
+            ls output/sc0710-*.rpm \
+              || { echo "sc0710 companion package missing"; exit 1; }
           fi
 
           # ── new-lg4ff expected packages ──────────────────────
           if [[ "${{ matrix.kmod }}" == "new-lg4ff" ]]; then
             ls output/kmod-new-lg4ff-*.rpm \
               || { echo "kmod-new-lg4ff package missing"; exit 1; }
+            ls output/new-lg4ff-*.rpm \
+              || { echo "new-lg4ff companion package missing"; exit 1; }
+            ls output/new-lg4ff-akmod-modules-*.rpm \
+              || { echo "new-lg4ff-akmod-modules package missing"; exit 1; }
           fi
 
           # ── hid-tmff2 expected packages ───────────────────────
           if [[ "${{ matrix.kmod }}" == "hid-tmff2" ]]; then
             ls output/kmod-hid-tmff2-*.rpm \
               || { echo "kmod-hid-tmff2 package missing"; exit 1; }
+            ls output/hid-tmff2-*.rpm \
+              || { echo "hid-tmff2 companion package missing"; exit 1; }
+            ls output/hid-tmff2-akmod-modules-*.rpm \
+              || { echo "hid-tmff2-akmod-modules package missing"; exit 1; }
           fi
 
           # ── openzfs expected packages ────────────────────────
@@ -242,6 +268,7 @@ jobs:
           if [[ "${KMOD}" == "nvidia" ]]; then
             PACKAGES="\`\`\`
           kmod-nvidia-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm       # kernel modules
+          nvidia-kmod-common-${KMOD_VERSION}-1.rpm                  # companion
           \`\`\`"
             INSTALL_SNIPPET="\`\`\`dockerfile
           RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-nvidia-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-nvidia.rpm \\
@@ -253,6 +280,7 @@ jobs:
           if [[ "${KMOD}" == "xpadneo" ]]; then
             PACKAGES="\`\`\`
           kmod-xpadneo-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm      # kernel module
+          xpadneo-kmod-common-${KMOD_VERSION}-1.rpm                 # companion
           \`\`\`"
             INSTALL_SNIPPET="\`\`\`dockerfile
           RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-xpadneo-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-xpadneo.rpm \\
@@ -264,6 +292,7 @@ jobs:
           if [[ "${KMOD}" == "xone" ]]; then
             PACKAGES="\`\`\`
           kmod-xone-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm         # kernel module
+          xone-kmod-common-${KMOD_VERSION}-1.rpm                    # companion
           \`\`\`"
             INSTALL_SNIPPET="\`\`\`dockerfile
           RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-xone-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-xone.rpm \\
@@ -275,6 +304,7 @@ jobs:
           if [[ "${KMOD}" == "wl" ]]; then
             PACKAGES="\`\`\`
           kmod-wl-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm           # kernel module
+          broadcom-wl-${KMOD_VERSION}-1.rpm                         # companion
           \`\`\`"
             INSTALL_SNIPPET="\`\`\`dockerfile
           RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-wl-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-wl.rpm \\
@@ -286,6 +316,8 @@ jobs:
           if [[ "${KMOD}" == "evdi" ]]; then
             PACKAGES="\`\`\`
           kmod-evdi-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm         # kernel module
+          libevdi-${KMOD_VERSION}-1.rpm                             # companion
+          displaylink-${KMOD_VERSION}-1.rpm                         # companion
           \`\`\`"
             INSTALL_SNIPPET="\`\`\`dockerfile
           RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-evdi-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-evdi.rpm \\
@@ -296,7 +328,9 @@ jobs:
 
           if [[ "${KMOD}" == "hid-fanatecff" ]]; then
             PACKAGES="\`\`\`
-          kmod-hid-fanatecff-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm  # kernel module
+          kmod-hid-fanatecff-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm   # kernel module
+          hid-fanatecff-${KMOD_VERSION}-1.rpm                          # companion
+          hid-fanatecff-akmod-modules-${KMOD_VERSION}-1.rpm            # akmod modules
           \`\`\`"
             INSTALL_SNIPPET="\`\`\`dockerfile
           RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-hid-fanatecff-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-hid-fanatecff.rpm \\
@@ -308,6 +342,7 @@ jobs:
           if [[ "${KMOD}" == "sc0710" ]]; then
             PACKAGES="\`\`\`
           kmod-sc0710-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm     # kernel module
+          sc0710-${KMOD_VERSION}-1.rpm                            # companion
           \`\`\`"
             INSTALL_SNIPPET="\`\`\`dockerfile
           RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-sc0710-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-sc0710.rpm \\
@@ -318,7 +353,9 @@ jobs:
 
           if [[ "${KMOD}" == "new-lg4ff" ]]; then
             PACKAGES="\`\`\`
-          kmod-new-lg4ff-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm   # kernel module
+          kmod-new-lg4ff-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm    # kernel module
+          new-lg4ff-${KMOD_VERSION}-1.rpm                           # companion
+          new-lg4ff-akmod-modules-${KMOD_VERSION}-1.rpm             # akmod modules
           \`\`\`"
             INSTALL_SNIPPET="\`\`\`dockerfile
           RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-new-lg4ff-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-new-lg4ff.rpm \\
@@ -329,7 +366,9 @@ jobs:
 
           if [[ "${KMOD}" == "hid-tmff2" ]]; then
             PACKAGES="\`\`\`
-          kmod-hid-tmff2-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm   # kernel module
+          kmod-hid-tmff2-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm    # kernel module
+          hid-tmff2-${KMOD_VERSION}-1.rpm                           # companion
+          hid-tmff2-akmod-modules-${KMOD_VERSION}-1.rpm             # akmod modules
           \`\`\`"
             INSTALL_SNIPPET="\`\`\`dockerfile
           RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-hid-tmff2-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-hid-tmff2.rpm \\
@@ -342,10 +381,10 @@ jobs:
             FC="$(rpm -E %fedora 2>/dev/null || \
                   ls output/kmod-zfs-*.rpm | head -1 | grep -oP '(?<=\.fc)\d+' | head -1)"
             PACKAGES="\`\`\`
-          kmod-zfs-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc${FC}.x86_64.rpm   # kernel module
+          kmod-zfs-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc${FC}.x86_64.rpm    # kernel module
           zfs-${KMOD_VERSION}-1.fc${FC}.x86_64.rpm                           # zfs + zpool CLI
           zfs-dracut-${KMOD_VERSION}-1.fc${FC}.noarch.rpm                    # initrd hook
-          libnvpair3-${KMOD_VERSION}-1.fc${FC}.x86_64.rpm                   # runtime libs
+          libnvpair3-${KMOD_VERSION}-1.fc${FC}.x86_64.rpm                    # runtime libs
           libuutil3-${KMOD_VERSION}-1.fc${FC}.x86_64.rpm
           libzfs6-${KMOD_VERSION}-1.fc${FC}.x86_64.rpm
           libzpool6-${KMOD_VERSION}-1.fc${FC}.x86_64.rpm

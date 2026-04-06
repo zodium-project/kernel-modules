@@ -94,6 +94,12 @@ for rpm in "${RPMS[@]}"; do
     say "  ${CYAN}◈${NC}  $(basename "$rpm")"
 done
 
+# ── Download companion packages ───────────────────────────────
+info "Downloading xpadneo companion packages..."
+dnf download -y --destdir /output/ \
+    xpadneo-kmod-common
+ok "Companion packages downloaded"
+
 # ── Copy to output ────────────────────────────────────────────
 info "Copying RPMs to /output/..."
 cp "${RPMS[@]}" /output/

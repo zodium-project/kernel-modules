@@ -94,6 +94,13 @@ for rpm in "${RPMS[@]}"; do
     say "  ${CYAN}◈${NC}  $(basename "$rpm")"
 done
 
+# ── Download companion packages ───────────────────────────────
+info "Downloading new-lg4ff companion packages..."
+dnf download -y --destdir /output/ \
+    new-lg4ff \
+    new-lg4ff-akmod-modules
+ok "Companion packages downloaded"
+
 # ── Copy to output ────────────────────────────────────────────
 info "Copying RPMs to /output/..."
 cp "${RPMS[@]}" /output/
