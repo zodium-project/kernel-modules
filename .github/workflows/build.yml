@@ -48,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kmod: [v4l2loopback, openrazer, nvidia, xpadneo, xone, wl]
+        kmod: [v4l2loopback, openrazer, nvidia, xpadneo, xone, wl, openzfs]
 
     steps:
       - name: Checkout kmods-zodium
@@ -143,6 +143,24 @@ jobs:
               || { echo "kmod-wl package missing"; exit 1; }
           fi
 
+          # ── openzfs expected packages ────────────────────────
+          if [[ "${{ matrix.kmod }}" == "openzfs" ]]; then
+            ls output/kmod-zfs-*.rpm \
+              || { echo "kmod-zfs package missing"; exit 1; }
+            ls output/zfs-[0-9]*.rpm \
+              || { echo "zfs userland package missing"; exit 1; }
+            ls output/zfs-dracut-*.rpm \
+              || { echo "zfs-dracut package missing (initrd hook!)"; exit 1; }
+            ls output/libnvpair*.rpm \
+              || { echo "libnvpair package missing"; exit 1; }
+            ls output/libuutil*.rpm \
+              || { echo "libuutil package missing"; exit 1; }
+            ls output/libzfs*.rpm \
+              || { echo "libzfs package missing"; exit 1; }
+            ls output/libzpool*.rpm \
+              || { echo "libzpool package missing"; exit 1; }
+          fi
+
       - name: Create GitHub Release
         if: steps.check.outputs.skip == 'false'
         env:
@@ -152,10 +170,18 @@ jobs:
         run: |
           RELEASE_TAG="${{ steps.check.outputs.release_tag }}"
 
-          KMOD_VERSION="$(ls output/kmod-${KMOD}-*.rpm \
-            | head -1 \
-            | grep -oP '(?<=-)[0-9]+\.[0-9]+\.[0-9]+(?=-)' \
-            | tail -1)"
+          # ── version extraction (openzfs uses different naming) ─
+          if [[ "${KMOD}" == "openzfs" ]]; then
+            KMOD_VERSION="$(ls output/kmod-zfs-*.rpm \
+              | head -1 \
+              | grep -oP '\d+\.\d+\.\d+' \
+              | head -1)"
+          else
+            KMOD_VERSION="$(ls output/kmod-${KMOD}-*.rpm \
+              | head -1 \
+              | grep -oP '(?<=-)[0-9]+\.[0-9]+\.[0-9]+(?=-)' \
+              | tail -1)"
+          fi
 
           if [[ "${KMOD}" == "v4l2loopback" ]]; then
             PACKAGES="\`\`\`
@@ -224,6 +250,32 @@ jobs:
           RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-wl-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-wl.rpm \\
               && dnf install -y /tmp/kmod-wl.rpm \\
               && rm /tmp/kmod-wl.rpm
+          \`\`\`"
+          fi
+
+          if [[ "${KMOD}" == "openzfs" ]]; then
+            FC="$(rpm -E %fedora 2>/dev/null || \
+                  ls output/kmod-zfs-*.rpm | head -1 | grep -oP '(?<=\.fc)\d+' | head -1)"
+            PACKAGES="\`\`\`
+          kmod-zfs-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc${FC}.x86_64.rpm   # kernel module
+          zfs-${KMOD_VERSION}-1.fc${FC}.x86_64.rpm                           # zfs + zpool CLI
+          zfs-dracut-${KMOD_VERSION}-1.fc${FC}.noarch.rpm                    # initrd hook
+          libnvpair3-${KMOD_VERSION}-1.fc${FC}.x86_64.rpm                   # runtime libs
+          libuutil3-${KMOD_VERSION}-1.fc${FC}.x86_64.rpm
+          libzfs6-${KMOD_VERSION}-1.fc${FC}.x86_64.rpm
+          libzpool6-${KMOD_VERSION}-1.fc${FC}.x86_64.rpm
+          python3-pyzfs-${KMOD_VERSION}-1.fc${FC}.noarch.rpm
+          \`\`\`"
+            INSTALL_SNIPPET="\`\`\`dockerfile
+          # Download all ZFS RPMs from this release
+          RUN cd /tmp && \
+              for rpm in \$(curl -fLsS https://api.github.com/repos/${{ github.repository }}/releases/tags/${RELEASE_TAG} \
+                  | grep -oP '(?<=\"browser_download_url\": \")[^\"]+\.rpm'); do \
+                  curl -fLsS \"\${rpm}\" -O; \
+              done && \
+              dnf install -y /tmp/kmod-zfs-*.rpm /tmp/zfs-[0-9]*.rpm \
+                  /tmp/zfs-dracut-*.rpm /tmp/lib*.rpm /tmp/python3-pyzfs-*.rpm && \
+              rm /tmp/*.rpm
           \`\`\`"
           fi
 
