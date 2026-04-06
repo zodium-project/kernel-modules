@@ -48,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kmod: [v4l2loopback, openrazer, nvidia, xpadneo, xone]
+        kmod: [v4l2loopback, openrazer, nvidia, xpadneo, xone, wl]
 
     steps:
       - name: Checkout kmods-zodium
@@ -137,6 +137,12 @@ jobs:
               || { echo "kmod-xone package missing"; exit 1; }
           fi
 
+          # ── wl expected packages ─────────────────────────────
+          if [[ "${{ matrix.kmod }}" == "wl" ]]; then
+            ls output/kmod-wl-*.rpm \
+              || { echo "kmod-wl package missing"; exit 1; }
+          fi
+
       - name: Create GitHub Release
         if: steps.check.outputs.skip == 'false'
         env:
@@ -207,6 +213,17 @@ jobs:
           RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-xone-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-xone.rpm \\
               && dnf install -y /tmp/kmod-xone.rpm \\
               && rm /tmp/kmod-xone.rpm
+          \`\`\`"
+          fi
+
+          if [[ "${KMOD}" == "wl" ]]; then
+            PACKAGES="\`\`\`
+          kmod-wl-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm           # kernel module
+          \`\`\`"
+            INSTALL_SNIPPET="\`\`\`dockerfile
+          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-wl-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-wl.rpm \\
+              && dnf install -y /tmp/kmod-wl.rpm \\
+              && rm /tmp/kmod-wl.rpm
           \`\`\`"
           fi
 
