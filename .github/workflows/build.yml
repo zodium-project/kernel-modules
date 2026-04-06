@@ -260,6 +260,7 @@ jobs:
           gh release create "${RELEASE_TAG}" \
             --repo ${{ github.repository }} \
             --title "kernel ${KERNEL_VERSION}" \
+            --latest \
             --notes "## kmods-zodium
 
           **kernel:** \`${KERNEL_VERSION}\`
