@@ -132,9 +132,13 @@ curl -fLsS -O "${BASE_URL}/zfs-${ZFS_VERSION}.sha256.asc"
 ok "Tarball and signatures downloaded"
 
 # ── GPG verification ──────────────────────────────────────────
-info "Setting up GPG..."
-mkdir -p /root/.gnupg
-chmod 700 /root/.gnupg
+# use WORK_DIR for GNUPGHOME — avoids touching /root which may be
+# read-only or already exist with wrong permissions in the container
+info "Setting up GPG keyring..."
+export GNUPGHOME="${WORK_DIR}/.gnupg"
+mkdir -p "${GNUPGHOME}"
+chmod 700 "${GNUPGHOME}"
+ok "GPG keyring ready: ${GNUPGHOME}"
 
 info "Importing OpenZFS signing keys..."
 gpg --yes --keyserver keyserver.ubuntu.com --recv D4598027
