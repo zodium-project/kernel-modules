@@ -48,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kmod: [v4l2loopback, openrazer, nvidia, xpadneo, xone, wl, evdi, hid-fanatecff, sc0710, openzfs]
+        kmod: [v4l2loopback, openrazer, nvidia, xpadneo, xone, wl, evdi, hid-fanatecff, sc0710, new-lg4ff, hid-tmff2, openzfs]
 
     steps:
       - name: Checkout kmods-zodium
@@ -159,6 +159,18 @@ jobs:
           if [[ "${{ matrix.kmod }}" == "sc0710" ]]; then
             ls output/kmod-sc0710-*.rpm \
               || { echo "kmod-sc0710 package missing"; exit 1; }
+          fi
+
+          # ── new-lg4ff expected packages ──────────────────────
+          if [[ "${{ matrix.kmod }}" == "new-lg4ff" ]]; then
+            ls output/kmod-new-lg4ff-*.rpm \
+              || { echo "kmod-new-lg4ff package missing"; exit 1; }
+          fi
+
+          # ── hid-tmff2 expected packages ───────────────────────
+          if [[ "${{ matrix.kmod }}" == "hid-tmff2" ]]; then
+            ls output/kmod-hid-tmff2-*.rpm \
+              || { echo "kmod-hid-tmff2 package missing"; exit 1; }
           fi
 
           # ── openzfs expected packages ────────────────────────
@@ -301,6 +313,28 @@ jobs:
           RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-sc0710-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-sc0710.rpm \\
               && dnf install -y /tmp/kmod-sc0710.rpm \\
               && rm /tmp/kmod-sc0710.rpm
+          \`\`\`"
+          fi
+
+          if [[ "${KMOD}" == "new-lg4ff" ]]; then
+            PACKAGES="\`\`\`
+          kmod-new-lg4ff-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm   # kernel module
+          \`\`\`"
+            INSTALL_SNIPPET="\`\`\`dockerfile
+          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-new-lg4ff-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-new-lg4ff.rpm \\
+              && dnf install -y /tmp/kmod-new-lg4ff.rpm \\
+              && rm /tmp/kmod-new-lg4ff.rpm
+          \`\`\`"
+          fi
+
+          if [[ "${KMOD}" == "hid-tmff2" ]]; then
+            PACKAGES="\`\`\`
+          kmod-hid-tmff2-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm   # kernel module
+          \`\`\`"
+            INSTALL_SNIPPET="\`\`\`dockerfile
+          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-hid-tmff2-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-hid-tmff2.rpm \\
+              && dnf install -y /tmp/kmod-hid-tmff2.rpm \\
+              && rm /tmp/kmod-hid-tmff2.rpm
           \`\`\`"
           fi
 
