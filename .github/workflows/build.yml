@@ -48,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kmod: [v4l2loopback, openrazer, nvidia, xpadneo, xone, wl, openzfs]
+        kmod: [v4l2loopback, openrazer, nvidia, xpadneo, xone, wl, evdi, openzfs]
 
     steps:
       - name: Checkout kmods-zodium
@@ -141,6 +141,12 @@ jobs:
           if [[ "${{ matrix.kmod }}" == "wl" ]]; then
             ls output/kmod-wl-*.rpm \
               || { echo "kmod-wl package missing"; exit 1; }
+          fi
+
+          # ── evdi expected packages ───────────────────────────
+          if [[ "${{ matrix.kmod }}" == "evdi" ]]; then
+            ls output/kmod-evdi-*.rpm \
+              || { echo "kmod-evdi package missing"; exit 1; }
           fi
 
           # ── openzfs expected packages ────────────────────────
@@ -250,6 +256,17 @@ jobs:
           RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-wl-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-wl.rpm \\
               && dnf install -y /tmp/kmod-wl.rpm \\
               && rm /tmp/kmod-wl.rpm
+          \`\`\`"
+          fi
+
+          if [[ "${KMOD}" == "evdi" ]]; then
+            PACKAGES="\`\`\`
+          kmod-evdi-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm         # kernel module
+          \`\`\`"
+            INSTALL_SNIPPET="\`\`\`dockerfile
+          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-evdi-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-evdi.rpm \\
+              && dnf install -y /tmp/kmod-evdi.rpm \\
+              && rm /tmp/kmod-evdi.rpm
           \`\`\`"
           fi
 
