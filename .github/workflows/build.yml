@@ -192,7 +192,10 @@ jobs:
       - name: Sanitize RPM filenames
         run: |
           for rpm in output/${{ matrix.kmod }}/*.rpm; do
-            clean="$(dirname "$rpm")/$(basename "$rpm" | sed 's/^[0-9]*://')"
+            clean="$(dirname "$rpm")/$(basename "$rpm" \
+              | sed 's/^[0-9]*://' \
+              | sed 's/:[^/]*/-/g' \
+              | sed 's/\^/-/g')"
             [[ "$rpm" != "$clean" ]] && mv "$rpm" "$clean" || true
           done
 
