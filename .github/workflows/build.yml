@@ -272,11 +272,17 @@ jobs:
 
           if [[ -n "$RELEASE_ID" ]]; then
             echo "Deleting all assets from ${RELEASE_TAG}..."
-            gh api "repos/${{ github.repository }}/releases/${RELEASE_ID}/assets" \
-              --jq '.[].id' | while read -r ASSET_ID; do
-              echo "  Deleting asset ${ASSET_ID}..."
-              gh api -X DELETE \
-                "repos/${{ github.repository }}/releases/${RELEASE_ID}/assets/${ASSET_ID}"
+            while true; do
+              ASSET_IDS="$(gh api \
+                "repos/${{ github.repository }}/releases/${RELEASE_ID}/assets" \
+                --jq '.[].id')"
+              [[ -z "$ASSET_IDS" ]] && break
+              while read -r ASSET_ID; do
+                echo "  Deleting asset ${ASSET_ID}..."
+                gh api -X DELETE \
+                  "repos/${{ github.repository }}/releases/${RELEASE_ID}/assets/${ASSET_ID}" \
+                  || true
+              done <<< "$ASSET_IDS"
             done
             echo "All assets deleted"
           else
