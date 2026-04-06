@@ -7,8 +7,8 @@ name: Build kmods
 
 on:
   schedule:
-    - cron: '0 2 * * *'        # nightly at 02:00 UTC
-  workflow_dispatch:             # manual trigger anytime
+    - cron: '0 2,10,18 * * *'   # 3x daily at 02:00, 10:00, 18:00 UTC
+  workflow_dispatch:              # manual trigger anytime
 
 jobs:
   # ── Detect latest Fedora kernel version ─────────────────────
@@ -37,16 +37,15 @@ jobs:
           echo "kernel_version=${KERNEL_VERSION}" >> "$GITHUB_OUTPUT"
           echo "Detected kernel: ${KERNEL_VERSION}"
 
-  # ── Build kmods ──────────────────────────────────────────────
+  # ── Build kmods (parallel matrix) ───────────────────────────
   build:
     name: Build ${{ matrix.kmod }}
     runs-on: ubuntu-latest
     needs: detect-kernel
-    permissions:
-      contents: write
+    fail-fast: true
 
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         kmod: [v4l2loopback, openrazer, nvidia, xpadneo, xone, wl, evdi, hid-fanatecff, sc0710, new-lg4ff, hid-tmff2, openzfs]
 
@@ -54,370 +53,261 @@ jobs:
       - name: Checkout kmods-zodium
         uses: actions/checkout@v4
 
-      - name: Check if rebuild needed
-        id: check
-        env:
-          KERNEL_VERSION: ${{ needs.detect-kernel.outputs.kernel_version }}
-          KMOD: ${{ matrix.kmod }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          RELEASE_TAG="${KMOD}-${KERNEL_VERSION}"
-
-          STATUS="$(gh release view "${RELEASE_TAG}" \
-            --repo ${{ github.repository }} \
-            --json tagName \
-            -q '.tagName' 2>/dev/null || echo 'not_found')"
-
-          if [[ "$STATUS" == "$RELEASE_TAG" ]]; then
-            echo "Release ${RELEASE_TAG} already exists, skipping build"
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "Release ${RELEASE_TAG} not found, proceeding with build"
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-          echo "release_tag=${RELEASE_TAG}" >> "$GITHUB_OUTPUT"
-
       - name: Create output directory
-        if: steps.check.outputs.skip == 'false'
-        run: mkdir -p output
+        run: mkdir -p output/${{ matrix.kmod }}
 
       - name: Build ${{ matrix.kmod }} RPMs
-        if: steps.check.outputs.skip == 'false'
         env:
           KERNEL_VERSION: ${{ needs.detect-kernel.outputs.kernel_version }}
         run: |
           docker run --rm \
             -v "${{ github.workspace }}/${{ matrix.kmod }}:/kmods-zodium/${{ matrix.kmod }}:ro" \
-            -v "${{ github.workspace }}/output:/output" \
+            -v "${{ github.workspace }}/output/${{ matrix.kmod }}:/output" \
             -e KERNEL_VERSION="${KERNEL_VERSION}" \
             quay.io/fedora/fedora-bootc \
             bash /kmods-zodium/${{ matrix.kmod }}/build.sh
 
       - name: Verify RPMs
-        if: steps.check.outputs.skip == 'false'
         run: |
           echo "Built RPMs:"
-          ls -lh output/
-          [[ "$(ls output/*.rpm 2>/dev/null | wc -l)" -gt 0 ]] \
-            || { echo "No RPMs found in output/"; exit 1; }
+          ls -lh output/${{ matrix.kmod }}/
+          [[ "$(ls output/${{ matrix.kmod }}/*.rpm 2>/dev/null | wc -l)" -gt 0 ]] \
+            || { echo "No RPMs found in output/${{ matrix.kmod }}/"; exit 1; }
 
           # ── v4l2loopback expected packages ──────────────────
           if [[ "${{ matrix.kmod }}" == "v4l2loopback" ]]; then
-            ls output/kmod-${{ matrix.kmod }}-*.rpm \
+            ls output/${{ matrix.kmod }}/kmod-${{ matrix.kmod }}-*.rpm \
               || { echo "kmod package missing"; exit 1; }
-            ls output/${{ matrix.kmod }}-kmod-common-utils-*.rpm \
+            ls output/${{ matrix.kmod }}/${{ matrix.kmod }}-kmod-common-utils-*.rpm \
               || { echo "utils package missing"; exit 1; }
-            ls output/${{ matrix.kmod }}-kmod-common-devel-*.rpm \
+            ls output/${{ matrix.kmod }}/${{ matrix.kmod }}-kmod-common-devel-*.rpm \
               || { echo "devel package missing"; exit 1; }
           fi
 
           # ── openrazer expected packages ─────────────────────
           if [[ "${{ matrix.kmod }}" == "openrazer" ]]; then
-            ls output/kmod-${{ matrix.kmod }}-*.rpm \
+            ls output/${{ matrix.kmod }}/kmod-${{ matrix.kmod }}-*.rpm \
               || { echo "kmod package missing"; exit 1; }
-            ls output/${{ matrix.kmod }}-kmod-common-*.rpm \
+            ls output/${{ matrix.kmod }}/${{ matrix.kmod }}-kmod-common-*.rpm \
               || { echo "common package missing"; exit 1; }
           fi
 
           # ── nvidia expected packages ─────────────────────────
           if [[ "${{ matrix.kmod }}" == "nvidia" ]]; then
-            ls output/kmod-nvidia-*.rpm \
+            ls output/${{ matrix.kmod }}/kmod-nvidia-*.rpm \
               || { echo "kmod-nvidia package missing"; exit 1; }
-            ls output/nvidia-kmod-common-*.rpm \
+            ls output/${{ matrix.kmod }}/nvidia-kmod-common-*.rpm \
               || { echo "nvidia companion package missing"; exit 1; }
           fi
 
           # ── xpadneo expected packages ────────────────────────
           if [[ "${{ matrix.kmod }}" == "xpadneo" ]]; then
-            ls output/kmod-xpadneo-*.rpm \
+            ls output/${{ matrix.kmod }}/kmod-xpadneo-*.rpm \
               || { echo "kmod-xpadneo package missing"; exit 1; }
-            ls output/xpadneo-kmod-common-*.rpm \
+            ls output/${{ matrix.kmod }}/xpadneo-kmod-common-*.rpm \
               || { echo "xpadneo companion package missing"; exit 1; }
           fi
 
           # ── xone expected packages ───────────────────────────
           if [[ "${{ matrix.kmod }}" == "xone" ]]; then
-            ls output/kmod-xone-*.rpm \
+            ls output/${{ matrix.kmod }}/kmod-xone-*.rpm \
               || { echo "kmod-xone package missing"; exit 1; }
-            ls output/xone-kmod-common-*.rpm \
+            ls output/${{ matrix.kmod }}/xone-kmod-common-*.rpm \
               || { echo "xone companion package missing"; exit 1; }
           fi
 
           # ── wl expected packages ─────────────────────────────
           if [[ "${{ matrix.kmod }}" == "wl" ]]; then
-            ls output/kmod-wl-*.rpm \
+            ls output/${{ matrix.kmod }}/kmod-wl-*.rpm \
               || { echo "kmod-wl package missing"; exit 1; }
-            ls output/broadcom-wl-*.rpm \
-              || { echo "kmod-wl companion package missing"; exit 1; }
+            ls output/${{ matrix.kmod }}/broadcom-wl-*.rpm \
+              || { echo "broadcom-wl companion package missing"; exit 1; }
           fi
 
           # ── evdi expected packages ───────────────────────────
           if [[ "${{ matrix.kmod }}" == "evdi" ]]; then
-            ls output/kmod-evdi-*.rpm \
+            ls output/${{ matrix.kmod }}/kmod-evdi-*.rpm \
               || { echo "kmod-evdi package missing"; exit 1; }
-            ls output/libevdi-*.rpm \
+            ls output/${{ matrix.kmod }}/libevdi-*.rpm \
               || { echo "libevdi package missing"; exit 1; }
-            ls output/displaylink-*.rpm \
+            ls output/${{ matrix.kmod }}/displaylink-*.rpm \
               || { echo "displaylink package missing"; exit 1; }
           fi
 
           # ── hid-fanatecff expected packages ─────────────────
           if [[ "${{ matrix.kmod }}" == "hid-fanatecff" ]]; then
-            ls output/kmod-hid-fanatecff-*.rpm \
+            ls output/${{ matrix.kmod }}/kmod-hid-fanatecff-*.rpm \
               || { echo "kmod-hid-fanatecff package missing"; exit 1; }
-            ls output/hid-fanatecff-*.rpm \
+            ls output/${{ matrix.kmod }}/hid-fanatecff-*.rpm \
               || { echo "hid-fanatecff companion package missing"; exit 1; }
-            ls output/hid-fanatecff-akmod-modules-*.rpm \
+            ls output/${{ matrix.kmod }}/hid-fanatecff-akmod-modules-*.rpm \
               || { echo "hid-fanatecff-akmod-modules package missing"; exit 1; }
           fi
 
           # ── sc0710 expected packages ─────────────────────────
           if [[ "${{ matrix.kmod }}" == "sc0710" ]]; then
-            ls output/kmod-sc0710-*.rpm \
+            ls output/${{ matrix.kmod }}/kmod-sc0710-*.rpm \
               || { echo "kmod-sc0710 package missing"; exit 1; }
-            ls output/sc0710-*.rpm \
+            ls output/${{ matrix.kmod }}/sc0710-*.rpm \
               || { echo "sc0710 companion package missing"; exit 1; }
           fi
 
           # ── new-lg4ff expected packages ──────────────────────
           if [[ "${{ matrix.kmod }}" == "new-lg4ff" ]]; then
-            ls output/kmod-new-lg4ff-*.rpm \
+            ls output/${{ matrix.kmod }}/kmod-new-lg4ff-*.rpm \
               || { echo "kmod-new-lg4ff package missing"; exit 1; }
-            ls output/new-lg4ff-*.rpm \
+            ls output/${{ matrix.kmod }}/new-lg4ff-*.rpm \
               || { echo "new-lg4ff companion package missing"; exit 1; }
-            ls output/new-lg4ff-akmod-modules-*.rpm \
+            ls output/${{ matrix.kmod }}/new-lg4ff-akmod-modules-*.rpm \
               || { echo "new-lg4ff-akmod-modules package missing"; exit 1; }
           fi
 
           # ── hid-tmff2 expected packages ───────────────────────
           if [[ "${{ matrix.kmod }}" == "hid-tmff2" ]]; then
-            ls output/kmod-hid-tmff2-*.rpm \
+            ls output/${{ matrix.kmod }}/kmod-hid-tmff2-*.rpm \
               || { echo "kmod-hid-tmff2 package missing"; exit 1; }
-            ls output/hid-tmff2-*.rpm \
+            ls output/${{ matrix.kmod }}/hid-tmff2-*.rpm \
               || { echo "hid-tmff2 companion package missing"; exit 1; }
-            ls output/hid-tmff2-akmod-modules-*.rpm \
+            ls output/${{ matrix.kmod }}/hid-tmff2-akmod-modules-*.rpm \
               || { echo "hid-tmff2-akmod-modules package missing"; exit 1; }
           fi
 
           # ── openzfs expected packages ────────────────────────
           if [[ "${{ matrix.kmod }}" == "openzfs" ]]; then
-            ls output/kmod-zfs-*.rpm \
+            ls output/${{ matrix.kmod }}/kmod-zfs-*.rpm \
               || { echo "kmod-zfs package missing"; exit 1; }
-            ls output/zfs-[0-9]*.rpm \
+            ls output/${{ matrix.kmod }}/zfs-[0-9]*.rpm \
               || { echo "zfs userland package missing"; exit 1; }
-            ls output/zfs-dracut-*.rpm \
+            ls output/${{ matrix.kmod }}/zfs-dracut-*.rpm \
               || { echo "zfs-dracut package missing (initrd hook!)"; exit 1; }
-            ls output/libnvpair*.rpm \
+            ls output/${{ matrix.kmod }}/libnvpair*.rpm \
               || { echo "libnvpair package missing"; exit 1; }
-            ls output/libuutil*.rpm \
+            ls output/${{ matrix.kmod }}/libuutil*.rpm \
               || { echo "libuutil package missing"; exit 1; }
-            ls output/libzfs*.rpm \
+            ls output/${{ matrix.kmod }}/libzfs*.rpm \
               || { echo "libzfs package missing"; exit 1; }
-            ls output/libzpool*.rpm \
+            ls output/${{ matrix.kmod }}/libzpool*.rpm \
               || { echo "libzpool package missing"; exit 1; }
           fi
 
-      - name: Create GitHub Release
-        if: steps.check.outputs.skip == 'false'
+      - name: Upload RPMs as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpms-${{ matrix.kmod }}
+          path: output/${{ matrix.kmod }}/*.rpm
+          retention-days: 1
+
+  # ── Publish — runs only after ALL matrix jobs succeed ────────
+  publish:
+    name: Publish release
+    runs-on: ubuntu-latest
+    needs: [detect-kernel, build]
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all RPM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: rpms-*
+          path: all-rpms
+          merge-multiple: true
+
+      - name: List all collected RPMs
+        run: |
+          echo "All RPMs collected for release:"
+          ls -lh all-rpms/
+          [[ "$(ls all-rpms/*.rpm 2>/dev/null | wc -l)" -gt 0 ]] \
+            || { echo "No RPMs found"; exit 1; }
+
+      - name: Delete stale kernel releases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           KERNEL_VERSION: ${{ needs.detect-kernel.outputs.kernel_version }}
-          KMOD: ${{ matrix.kmod }}
         run: |
-          RELEASE_TAG="${{ steps.check.outputs.release_tag }}"
+          CURRENT_TAG="kernel-${KERNEL_VERSION}"
 
-          # ── version extraction (openzfs uses different naming) ─
-          if [[ "${KMOD}" == "openzfs" ]]; then
-            KMOD_VERSION="$(ls output/kmod-zfs-*.rpm \
-              | head -1 \
-              | grep -oP '\d+\.\d+\.\d+' \
-              | head -1)"
-          else
-            KMOD_VERSION="$(ls output/kmod-${KMOD}-*.rpm \
-              | head -1 \
-              | grep -oP '(?<=-)[0-9]+\.[0-9]+\.[0-9]+(?=-)' \
-              | tail -1)"
-          fi
+          echo "Current tag: ${CURRENT_TAG}"
+          echo "Scanning for stale kernel-* releases to delete..."
 
-          if [[ "${KMOD}" == "v4l2loopback" ]]; then
-            PACKAGES="\`\`\`
-          kmod-${KMOD}-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm     # kernel module
-          ${KMOD}-kmod-common-utils-${KMOD_VERSION}-1.rpm           # userspace utils
-          ${KMOD}-kmod-common-devel-${KMOD_VERSION}-1.rpm           # headers
-          \`\`\`"
-            INSTALL_SNIPPET="\`\`\`dockerfile
-          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-${KMOD}-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/${KMOD}-kmod.rpm \\
-              && dnf install -y /tmp/${KMOD}-kmod.rpm \\
-              && rm /tmp/${KMOD}-kmod.rpm
-          \`\`\`"
-          fi
-
-          if [[ "${KMOD}" == "openrazer" ]]; then
-            PACKAGES="\`\`\`
-          kmod-${KMOD}-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm      # kernel modules
-          ${KMOD}-kmod-common-${KMOD_VERSION}-1.rpm                  # daemon + udev + pylib
-          \`\`\`"
-            INSTALL_SNIPPET="\`\`\`dockerfile
-          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-${KMOD}-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/${KMOD}-kmod.rpm \\
-              && curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/${KMOD}-kmod-common-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).noarch.rpm -o /tmp/${KMOD}-common.rpm \\
-              && dnf install -y /tmp/${KMOD}-kmod.rpm /tmp/${KMOD}-common.rpm \\
-              && rm /tmp/${KMOD}-*.rpm
-          \`\`\`"
-          fi
-
-          if [[ "${KMOD}" == "nvidia" ]]; then
-            PACKAGES="\`\`\`
-          kmod-nvidia-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm       # kernel modules
-          nvidia-kmod-common-${KMOD_VERSION}-1.rpm                  # companion
-          \`\`\`"
-            INSTALL_SNIPPET="\`\`\`dockerfile
-          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-nvidia-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-nvidia.rpm \\
-              && dnf install -y /tmp/kmod-nvidia.rpm \\
-              && rm /tmp/kmod-nvidia.rpm
-          \`\`\`"
-          fi
-
-          if [[ "${KMOD}" == "xpadneo" ]]; then
-            PACKAGES="\`\`\`
-          kmod-xpadneo-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm      # kernel module
-          xpadneo-kmod-common-${KMOD_VERSION}-1.rpm                 # companion
-          \`\`\`"
-            INSTALL_SNIPPET="\`\`\`dockerfile
-          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-xpadneo-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-xpadneo.rpm \\
-              && dnf install -y /tmp/kmod-xpadneo.rpm \\
-              && rm /tmp/kmod-xpadneo.rpm
-          \`\`\`"
-          fi
-
-          if [[ "${KMOD}" == "xone" ]]; then
-            PACKAGES="\`\`\`
-          kmod-xone-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm         # kernel module
-          xone-kmod-common-${KMOD_VERSION}-1.rpm                    # companion
-          \`\`\`"
-            INSTALL_SNIPPET="\`\`\`dockerfile
-          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-xone-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-xone.rpm \\
-              && dnf install -y /tmp/kmod-xone.rpm \\
-              && rm /tmp/kmod-xone.rpm
-          \`\`\`"
-          fi
-
-          if [[ "${KMOD}" == "wl" ]]; then
-            PACKAGES="\`\`\`
-          kmod-wl-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm           # kernel module
-          broadcom-wl-${KMOD_VERSION}-1.rpm                         # companion
-          \`\`\`"
-            INSTALL_SNIPPET="\`\`\`dockerfile
-          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-wl-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-wl.rpm \\
-              && dnf install -y /tmp/kmod-wl.rpm \\
-              && rm /tmp/kmod-wl.rpm
-          \`\`\`"
-          fi
-
-          if [[ "${KMOD}" == "evdi" ]]; then
-            PACKAGES="\`\`\`
-          kmod-evdi-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm         # kernel module
-          libevdi-${KMOD_VERSION}-1.rpm                             # companion
-          displaylink-${KMOD_VERSION}-1.rpm                         # companion
-          \`\`\`"
-            INSTALL_SNIPPET="\`\`\`dockerfile
-          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-evdi-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-evdi.rpm \\
-              && dnf install -y /tmp/kmod-evdi.rpm \\
-              && rm /tmp/kmod-evdi.rpm
-          \`\`\`"
-          fi
-
-          if [[ "${KMOD}" == "hid-fanatecff" ]]; then
-            PACKAGES="\`\`\`
-          kmod-hid-fanatecff-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm   # kernel module
-          hid-fanatecff-${KMOD_VERSION}-1.rpm                          # companion
-          hid-fanatecff-akmod-modules-${KMOD_VERSION}-1.rpm            # akmod modules
-          \`\`\`"
-            INSTALL_SNIPPET="\`\`\`dockerfile
-          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-hid-fanatecff-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-hid-fanatecff.rpm \\
-              && dnf install -y /tmp/kmod-hid-fanatecff.rpm \\
-              && rm /tmp/kmod-hid-fanatecff.rpm
-          \`\`\`"
-          fi
-
-          if [[ "${KMOD}" == "sc0710" ]]; then
-            PACKAGES="\`\`\`
-          kmod-sc0710-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm     # kernel module
-          sc0710-${KMOD_VERSION}-1.rpm                            # companion
-          \`\`\`"
-            INSTALL_SNIPPET="\`\`\`dockerfile
-          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-sc0710-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-sc0710.rpm \\
-              && dnf install -y /tmp/kmod-sc0710.rpm \\
-              && rm /tmp/kmod-sc0710.rpm
-          \`\`\`"
-          fi
-
-          if [[ "${KMOD}" == "new-lg4ff" ]]; then
-            PACKAGES="\`\`\`
-          kmod-new-lg4ff-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm    # kernel module
-          new-lg4ff-${KMOD_VERSION}-1.rpm                           # companion
-          new-lg4ff-akmod-modules-${KMOD_VERSION}-1.rpm             # akmod modules
-          \`\`\`"
-            INSTALL_SNIPPET="\`\`\`dockerfile
-          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-new-lg4ff-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-new-lg4ff.rpm \\
-              && dnf install -y /tmp/kmod-new-lg4ff.rpm \\
-              && rm /tmp/kmod-new-lg4ff.rpm
-          \`\`\`"
-          fi
-
-          if [[ "${KMOD}" == "hid-tmff2" ]]; then
-            PACKAGES="\`\`\`
-          kmod-hid-tmff2-${KERNEL_VERSION}-${KMOD_VERSION}-1.rpm    # kernel module
-          hid-tmff2-${KMOD_VERSION}-1.rpm                           # companion
-          hid-tmff2-akmod-modules-${KMOD_VERSION}-1.rpm             # akmod modules
-          \`\`\`"
-            INSTALL_SNIPPET="\`\`\`dockerfile
-          RUN curl -fLsS https://github.com/${{ github.repository }}/releases/download/${RELEASE_TAG}/kmod-hid-tmff2-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc\$(rpm -E %fedora).x86_64.rpm -o /tmp/kmod-hid-tmff2.rpm \\
-              && dnf install -y /tmp/kmod-hid-tmff2.rpm \\
-              && rm /tmp/kmod-hid-tmff2.rpm
-          \`\`\`"
-          fi
-
-          if [[ "${KMOD}" == "openzfs" ]]; then
-            FC="$(rpm -E %fedora 2>/dev/null || \
-                  ls output/kmod-zfs-*.rpm | head -1 | grep -oP '(?<=\.fc)\d+' | head -1)"
-            PACKAGES="\`\`\`
-          kmod-zfs-${KERNEL_VERSION}-${KMOD_VERSION}-1.fc${FC}.x86_64.rpm    # kernel module
-          zfs-${KMOD_VERSION}-1.fc${FC}.x86_64.rpm                           # zfs + zpool CLI
-          zfs-dracut-${KMOD_VERSION}-1.fc${FC}.noarch.rpm                    # initrd hook
-          libnvpair3-${KMOD_VERSION}-1.fc${FC}.x86_64.rpm                    # runtime libs
-          libuutil3-${KMOD_VERSION}-1.fc${FC}.x86_64.rpm
-          libzfs6-${KMOD_VERSION}-1.fc${FC}.x86_64.rpm
-          libzpool6-${KMOD_VERSION}-1.fc${FC}.x86_64.rpm
-          python3-pyzfs-${KMOD_VERSION}-1.fc${FC}.noarch.rpm
-          \`\`\`"
-            INSTALL_SNIPPET="\`\`\`dockerfile
-          # Download all ZFS RPMs from this release
-          RUN cd /tmp && \
-              for rpm in \$(curl -fLsS https://api.github.com/repos/${{ github.repository }}/releases/tags/${RELEASE_TAG} \
-                  | grep -oP '(?<=\"browser_download_url\": \")[^\"]+\.rpm'); do \
-                  curl -fLsS \"\${rpm}\" -O; \
-              done && \
-              dnf install -y /tmp/kmod-zfs-*.rpm /tmp/zfs-[0-9]*.rpm \
-                  /tmp/zfs-dracut-*.rpm /tmp/lib*.rpm /tmp/python3-pyzfs-*.rpm && \
-              rm /tmp/*.rpm
-          \`\`\`"
-          fi
-
-          gh release create "${RELEASE_TAG}" \
+          gh release list \
             --repo ${{ github.repository }} \
-            --title "${KMOD} — kernel ${KERNEL_VERSION}" \
-            --notes "## kmods-zodium nightly build
+            --limit 100 \
+            --json tagName \
+            --jq '.[].tagName' \
+          | grep '^kernel-' \
+          | while read -r TAG; do
+              if [[ "$TAG" != "$CURRENT_TAG" ]]; then
+                echo "  Deleting stale release: ${TAG}"
+                gh release delete "${TAG}" \
+                  --repo ${{ github.repository }} \
+                  --yes \
+                  --cleanup-tag
+              else
+                echo "  Keeping current release: ${TAG}"
+              fi
+            done
 
-          **kmod:** \`${KMOD}\`
-          **kmod version:** \`${KMOD_VERSION}\`
+          echo "Stale release cleanup complete"
+
+      - name: Delete all existing assets from current release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KERNEL_VERSION: ${{ needs.detect-kernel.outputs.kernel_version }}
+        run: |
+          RELEASE_TAG="kernel-${KERNEL_VERSION}"
+
+          RELEASE_ID="$(gh api \
+            repos/${{ github.repository }}/releases/tags/${RELEASE_TAG} \
+            --jq '.id' 2>/dev/null || echo '')"
+
+          if [[ -n "$RELEASE_ID" ]]; then
+            echo "Deleting all assets from ${RELEASE_TAG}..."
+            gh api "repos/${{ github.repository }}/releases/${RELEASE_ID}/assets" \
+              --jq '.[].id' | while read -r ASSET_ID; do
+              echo "  Deleting asset ${ASSET_ID}..."
+              gh api -X DELETE \
+                "repos/${{ github.repository }}/releases/${RELEASE_ID}/assets/${ASSET_ID}"
+            done
+            echo "All assets deleted"
+          else
+            echo "Release ${RELEASE_TAG} does not exist yet, will create"
+          fi
+
+      - name: Create or update release with all RPMs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KERNEL_VERSION: ${{ needs.detect-kernel.outputs.kernel_version }}
+        run: |
+          RELEASE_TAG="kernel-${KERNEL_VERSION}"
+
+          if ! gh release view "${RELEASE_TAG}" \
+              --repo ${{ github.repository }} > /dev/null 2>&1; then
+            gh release create "${RELEASE_TAG}" \
+              --repo ${{ github.repository }} \
+              --title "kernel ${KERNEL_VERSION}" \
+              --notes "## kmods-zodium
+
           **kernel:** \`${KERNEL_VERSION}\`
-          **built:** \`$(date -u '+%Y-%m-%d %H:%M UTC')\`
+          **updated:** \`$(date -u '+%Y-%m-%d %H:%M UTC')\`
 
-          ### Packages
-          ${PACKAGES}
+          All kernel modules built for kernel \`${KERNEL_VERSION}\`.
+          Install individual modules in zcore by downloading the relevant RPMs from the assets below."
+          else
+            gh release edit "${RELEASE_TAG}" \
+              --repo ${{ github.repository }} \
+              --notes "## kmods-zodium
 
-          ### Install in zcore
-          ${INSTALL_SNIPPET}" \
-            output/*.rpm
+          **kernel:** \`${KERNEL_VERSION}\`
+          **updated:** \`$(date -u '+%Y-%m-%d %H:%M UTC')\`
 
-          echo "Release ${RELEASE_TAG} created successfully"
+          All kernel modules built for kernel \`${KERNEL_VERSION}\`.
+          Install individual modules in zcore by downloading the relevant RPMs from the assets below."
+          fi
+
+          gh release upload "${RELEASE_TAG}" all-rpms/*.rpm \
+            --repo ${{ github.repository }} \
+            --clobber
+
+          echo "Release ${RELEASE_TAG} updated successfully"
+          echo "Assets uploaded: $(ls all-rpms/*.rpm | wc -l) RPMs"
