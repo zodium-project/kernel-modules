@@ -191,19 +191,10 @@ jobs:
 
       - name: Sanitize RPM filenames
         run: |
-          shopt -s nullglob
-
           for rpm in output/${{ matrix.kmod }}/*.rpm; do
-            base="$(basename "$rpm")"
-            clean="$(dirname "$rpm")/$(printf '%s' "$base" | sed 's/^[0-9]\+://')"
-
-            [[ "$rpm" == "$clean" ]] && continue
-
-            rm -f "$clean"
-            mv "$rpm" "$clean"
+            clean="$(dirname "$rpm")/$(basename "$rpm" | sed 's/^[0-9]*://')"
+            [[ "$rpm" != "$clean" ]] && mv "$rpm" "$clean" || true
           done
-
-          shopt -u nullglob
 
       - name: Upload RPMs as artifact
         uses: actions/upload-artifact@v4
