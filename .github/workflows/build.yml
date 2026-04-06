@@ -189,6 +189,13 @@ jobs:
               || { echo "libzpool package missing"; exit 1; }
           fi
 
+      - name: Sanitize RPM filenames
+        run: |
+          for rpm in output/${{ matrix.kmod }}/*.rpm; do
+            clean="$(dirname "$rpm")/$(basename "$rpm" | sed 's/^[0-9]*://')"
+            [[ "$rpm" != "$clean" ]] && mv "$rpm" "$clean"
+          done
+
       - name: Upload RPMs as artifact
         uses: actions/upload-artifact@v4
         with:
