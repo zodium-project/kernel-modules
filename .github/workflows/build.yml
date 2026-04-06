@@ -229,16 +229,11 @@ jobs:
           [[ "$(ls all-rpms/*.rpm 2>/dev/null | wc -l)" -gt 0 ]] \
             || { echo "No RPMs found"; exit 1; }
 
-      - name: Delete stale kernel releases
+      - name: Delete all kernel-* releases and tags
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          KERNEL_VERSION: ${{ needs.detect-kernel.outputs.kernel_version }}
         run: |
-          CURRENT_TAG="kernel-${KERNEL_VERSION}"
-
-          echo "Current tag: ${CURRENT_TAG}"
-          echo "Scanning for stale kernel-* releases to delete..."
-
+          echo "Deleting all kmods releases and tags..."
           gh release list \
             --repo ${{ github.repository }} \
             --limit 100 \
@@ -246,83 +241,35 @@ jobs:
             --jq '.[].tagName' \
           | grep '^kernel-' \
           | while read -r TAG; do
-              if [[ "$TAG" != "$CURRENT_TAG" ]]; then
-                echo "  Deleting stale release: ${TAG}"
-                gh release delete "${TAG}" \
-                  --repo ${{ github.repository }} \
-                  --yes \
-                  --cleanup-tag
-              else
-                echo "  Keeping current release: ${TAG}"
-              fi
+              echo "  Deleting release and tag: ${TAG}"
+              gh release delete "${TAG}" \
+                --repo ${{ github.repository }} \
+                --yes \
+                --cleanup-tag \
+                || true
             done
+          echo "Done"
 
-          echo "Stale release cleanup complete"
-
-      - name: Delete all existing assets from current release
+      - name: Create release with all RPMs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           KERNEL_VERSION: ${{ needs.detect-kernel.outputs.kernel_version }}
         run: |
           RELEASE_TAG="kernel-${KERNEL_VERSION}"
 
-          RELEASE_ID="$(gh api \
-            repos/${{ github.repository }}/releases/tags/${RELEASE_TAG} \
-            --jq '.id' 2>/dev/null || echo '')"
-
-          if [[ -n "$RELEASE_ID" ]]; then
-            echo "Deleting all assets from ${RELEASE_TAG}..."
-            while true; do
-              ASSET_IDS="$(gh api \
-                "repos/${{ github.repository }}/releases/${RELEASE_ID}/assets" \
-                --jq '.[].id')"
-              [[ -z "$ASSET_IDS" ]] && break
-              while read -r ASSET_ID; do
-                echo "  Deleting asset ${ASSET_ID}..."
-                gh api -X DELETE \
-                  "repos/${{ github.repository }}/releases/${RELEASE_ID}/assets/${ASSET_ID}" \
-                  || true
-              done <<< "$ASSET_IDS"
-            done
-            echo "All assets deleted"
-          else
-            echo "Release ${RELEASE_TAG} does not exist yet, will create"
-          fi
-
-      - name: Create or update release with all RPMs
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          KERNEL_VERSION: ${{ needs.detect-kernel.outputs.kernel_version }}
-        run: |
-          RELEASE_TAG="kernel-${KERNEL_VERSION}"
-
-          if ! gh release view "${RELEASE_TAG}" \
-              --repo ${{ github.repository }} > /dev/null 2>&1; then
-            gh release create "${RELEASE_TAG}" \
-              --repo ${{ github.repository }} \
-              --title "kernel ${KERNEL_VERSION}" \
-              --notes "## kmods-zodium
+          gh release create "${RELEASE_TAG}" \
+            --repo ${{ github.repository }} \
+            --title "kernel ${KERNEL_VERSION}" \
+            --notes "## kmods-zodium
 
           **kernel:** \`${KERNEL_VERSION}\`
           **updated:** \`$(date -u '+%Y-%m-%d %H:%M UTC')\`
 
           All kernel modules built for kernel \`${KERNEL_VERSION}\`.
           Install individual modules in zcore by downloading the relevant RPMs from the assets below."
-          else
-            gh release edit "${RELEASE_TAG}" \
-              --repo ${{ github.repository }} \
-              --notes "## kmods-zodium
-
-          **kernel:** \`${KERNEL_VERSION}\`
-          **updated:** \`$(date -u '+%Y-%m-%d %H:%M UTC')\`
-
-          All kernel modules built for kernel \`${KERNEL_VERSION}\`.
-          Install individual modules in zcore by downloading the relevant RPMs from the assets below."
-          fi
 
           gh release upload "${RELEASE_TAG}" all-rpms/*.rpm \
-            --repo ${{ github.repository }} \
-            --clobber
+            --repo ${{ github.repository }}
 
-          echo "Release ${RELEASE_TAG} updated successfully"
+          echo "Release ${RELEASE_TAG} created successfully"
           echo "Assets uploaded: $(ls all-rpms/*.rpm | wc -l) RPMs"
