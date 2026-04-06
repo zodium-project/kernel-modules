@@ -25,11 +25,6 @@ say ""
 mkdir -p /var/tmp
 chmod 1777 /var/tmp
 
-# ── Upgrade system ────────────────────────────────────────────
-info "Upgrading system packages..."
-dnf upgrade -y
-ok "System upgraded"
-
 # ── Detect kernel version ─────────────────────────────────────
 info "Detecting latest kernel version..."
 KERNEL_VERSION="$(rpm -q kernel \
@@ -45,29 +40,20 @@ info "Installing dnf5 plugins..."
 dnf install -y --setopt=install_weak_deps=False dnf5-plugins
 ok "dnf5 plugins installed"
 
-# ── Add zfsonlinux repo ───────────────────────────────────────
-info "Adding zfsonlinux repo..."
-FEDORA_VER="$(rpm -E %fedora)"
-dnf install -y --setopt=install_weak_deps=False \
-    "https://zfsonlinux.org/fedora/zfs-release-2-4$(rpm --eval '%{dist}').noarch.rpm"
-
-# Use zfs-legacy for stability (more real-world testing than zfs-latest)
-dnf config-manager setopt "zfs*.enabled=0"
-dnf config-manager setopt "zfs-legacy.enabled=1"
-dnf --refresh makecache
-ok "zfsonlinux zfs-legacy repo enabled"
-
 # ── Install build dependencies ────────────────────────────────
 info "Installing build dependencies for kernel: ${KERNEL_VERSION}..."
 dnf install -y --setopt=install_weak_deps=False \
-    "kernel-devel-matched-$(rpm -q kernel \
-        --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}' | sort -V | tail -1)" \
+    "kernel-devel-${KERNEL_VERSION}" \
+    "kernel-devel-matched-${KERNEL_VERSION}" \
     gcc \
     make \
     autoconf \
     automake \
     libtool \
     rpm-build \
+    curl \
+    jq \
+    gnupg2 \
     libtirpc-devel \
     libblkid-devel \
     libuuid-devel \
@@ -78,6 +64,7 @@ dnf install -y --setopt=install_weak_deps=False \
     libattr-devel \
     libffi-devel \
     libunwind-devel \
+    libcurl-devel \
     elfutils-libelf-devel \
     python3-devel \
     python3-setuptools \
@@ -87,81 +74,126 @@ ok "Build dependencies installed"
 
 # ── Verify kernel headers are present ─────────────────────────
 info "Verifying kernel headers..."
-[[ -d "$KERNEL_SRC" ]] || \
-    fail "Kernel headers missing at ${KERNEL_SRC}"
+[[ -d "$KERNEL_SRC" ]] || fail "Kernel headers missing at ${KERNEL_SRC}"
 ok "Kernel headers: OK"
 
-# ── Get ZFS source via SRPM ───────────────────────────────────
-# Installing the SRPM is the cleanest way to get the exact versioned
-# source tarball that matches the legacy repo, without hardcoding versions.
-info "Installing zfs SRPM to obtain source tarball..."
-SRPM_DIR="$(mktemp -d)"
-dnf download --source --destdir="${SRPM_DIR}" zfs
-SRPM="$(ls "${SRPM_DIR}"/zfs-*.src.rpm | sort -V | tail -1)"
-[[ -n "$SRPM" ]] || fail "Failed to download zfs SRPM"
-ok "SRPM: $(basename "$SRPM")"
+# ── Resolve ZFS version from GitHub API ───────────────────────
+# ZFS_MINOR_VERSION can be set to pin to a release series e.g. "2.2"
+# If unset, picks the latest stable release
+ZFS_MINOR_VERSION="${ZFS_MINOR_VERSION:-}"
 
-# Extract ZFS version from SRPM name: zfs-2.2.7-1.fc42.src.rpm → 2.2.7
-ZFS_VERSION="$(basename "$SRPM" | grep -oP '(?<=zfs-)\d+\.\d+\.\d+')"
-[[ -n "$ZFS_VERSION" ]] || fail "Could not parse ZFS version from SRPM"
+WORK_DIR="$(mktemp -d)"
+cd "$WORK_DIR"
+
+info "Fetching ZFS release list from GitHub API..."
+curl -fLsS "https://api.github.com/repos/openzfs/zfs/releases" -o zfs-releases.json
+
+if [[ -n "${ZFS_MINOR_VERSION}" ]]; then
+    ZFS_VERSION="$(jq -r \
+        --arg ZMV "zfs-${ZFS_MINOR_VERSION}" \
+        '[ .[] | select(.prerelease==false and .draft==false)
+               | select(.tag_name | startswith($ZMV))
+        ][0].tag_name' \
+        zfs-releases.json | cut -f2- -d-)"
+else
+    ZFS_VERSION="$(jq -r \
+        '[ .[] | select(.prerelease==false and .draft==false)
+        ][0].tag_name' \
+        zfs-releases.json | cut -f2- -d-)"
+fi
+
+[[ -n "$ZFS_VERSION" && "$ZFS_VERSION" != "null" ]] \
+    || fail "Could not resolve ZFS version from GitHub API"
 ok "ZFS version: ${ZFS_VERSION}"
 
-# Install SRPM to get the source tarball into rpmbuild tree
-rpm -ivh "$SRPM" 2>/dev/null || true
-TARBALL="${HOME}/rpmbuild/SOURCES/zfs-${ZFS_VERSION}.tar.gz"
-[[ -f "$TARBALL" ]] || fail "Source tarball not found at ${TARBALL}"
-ok "Source tarball: zfs-${ZFS_VERSION}.tar.gz"
+# ── Download tarball + signatures ─────────────────────────────
+BASE_URL="https://github.com/openzfs/zfs/releases/download/zfs-${ZFS_VERSION}"
 
-# ── Extract and prepare source ────────────────────────────────
-BUILD_DIR="$(mktemp -d)"
-info "Extracting source to ${BUILD_DIR}..."
-tar -xzf "$TARBALL" -C "$BUILD_DIR"
-ZFS_SRC="${BUILD_DIR}/zfs-${ZFS_VERSION}"
+info "Downloading zfs-${ZFS_VERSION}.tar.gz..."
+curl -fLsS -O "${BASE_URL}/zfs-${ZFS_VERSION}.tar.gz"
+curl -fLsS -O "${BASE_URL}/zfs-${ZFS_VERSION}.tar.gz.asc"
+curl -fLsS -O "${BASE_URL}/zfs-${ZFS_VERSION}.sha256.asc"
+ok "Tarball and signatures downloaded"
+
+# ── GPG verification ──────────────────────────────────────────
+# https://openzfs.github.io/openzfs-docs/Project%20and%20Community/Signing%20Keys.html
+info "Importing OpenZFS signing keys..."
+gpg --yes --keyserver keyserver.ubuntu.com --recv D4598027
+gpg --yes --keyserver keyserver.ubuntu.com --recv C77B9667
+gpg --yes --keyserver keyserver.ubuntu.com --recv C6AF658B
+ok "Signing keys imported"
+
+info "Verifying tarball signature..."
+gpg --verify "zfs-${ZFS_VERSION}.tar.gz.asc" "zfs-${ZFS_VERSION}.tar.gz" \
+    || fail "Tarball signature verification FAILED"
+ok "Tarball signature: OK"
+
+info "Verifying checksum signature..."
+gpg --verify "zfs-${ZFS_VERSION}.sha256.asc" \
+    || fail "Checksum signature verification FAILED"
+ok "Checksum signature: OK"
+
+info "Verifying checksum..."
+gpg --decrypt "zfs-${ZFS_VERSION}.sha256.asc" | sha256sum -c \
+    || fail "Checksum verification FAILED"
+ok "Checksum: OK"
+
+# ── Extract source ────────────────────────────────────────────
+info "Extracting zfs-${ZFS_VERSION}.tar.gz..."
+# --no-same-owner/--no-same-permissions required for F40+ images on podman 3.4.4
+tar -z -x --no-same-owner --no-same-permissions -f "zfs-${ZFS_VERSION}.tar.gz"
+ZFS_SRC="${WORK_DIR}/zfs-${ZFS_VERSION}"
 [[ -d "$ZFS_SRC" ]] || fail "Source directory not found after extraction"
 ok "Source extracted"
 
 # ── Configure ─────────────────────────────────────────────────
-info "Running autogen.sh..."
-cd "$ZFS_SRC"
-bash autogen.sh
-ok "autogen complete"
-
+# Release tarballs ship with configure — no autogen.sh needed
 info "Configuring for kernel ${KERNEL_VERSION}..."
-./configure \
-    --with-linux="${KERNEL_SRC}" \
-    --with-linux-obj="${KERNEL_SRC}" \
-    --enable-systemd
+cd "$ZFS_SRC"
+
+if ! ./configure \
+        --with-linux="${KERNEL_SRC}" \
+        --with-linux-obj="${KERNEL_SRC}" \
+        --enable-systemd; then
+    [[ -f config.log ]] && cat config.log
+    fail "configure failed — see config.log above"
+fi
 ok "Configure complete"
 
 # ── Build RPMs ────────────────────────────────────────────────
-info "Building kmod RPM (make -j$(nproc) rpm-kmod)..."
-make -j"$(nproc)" rpm-kmod
-ok "rpm-kmod built"
-
-info "Building utils RPMs (make -j$(nproc) rpm-utils)..."
+info "Building utils RPMs..."
 make -j"$(nproc)" rpm-utils
 ok "rpm-utils built"
+
+info "Building kmod RPM..."
+make -j"$(nproc)" rpm-kmod
+ok "rpm-kmod built"
 
 # ── Collect RPMs ──────────────────────────────────────────────
 info "Collecting built RPMs..."
 
-# rpm-kmod lands in the build dir itself
-# rpm-utils lands in ~/rpmbuild/RPMS/{x86_64,noarch}
-shopt -s nullglob
-KMOD_RPMS=("${ZFS_SRC}"/*.x86_64.rpm)
-UTIL_RPMS_ARCH=(${HOME}/rpmbuild/RPMS/x86_64/zfs-*.rpm
-                ${HOME}/rpmbuild/RPMS/x86_64/lib*.rpm)
-UTIL_RPMS_NOARCH=(${HOME}/rpmbuild/RPMS/noarch/zfs-dracut-*.rpm
-                  ${HOME}/rpmbuild/RPMS/noarch/python3-pyzfs-*.rpm)
-shopt -u nullglob
+WANTED_PATTERNS=(
+    "kmod-zfs-*"
+    "zfs-[0-9]*"
+    "zfs-dracut-*"
+    "libnvpair[0-9]*"
+    "libuutil[0-9]*"
+    "libzfs[0-9]*"
+    "libzpool[0-9]*"
+    "python3-pyzfs-*"
+)
 
-# Filter out debuginfo/debugsource — not needed in zcore
 ALL_RPMS=()
-for rpm in "${KMOD_RPMS[@]}" "${UTIL_RPMS_ARCH[@]}" "${UTIL_RPMS_NOARCH[@]}"; do
-    [[ "$rpm" == *debuginfo* || "$rpm" == *debugsource* ]] && continue
-    [[ "$rpm" == *devel* ]] && continue        # libzfs-devel not needed at runtime
-    [[ "$rpm" == *dkms* ]] && continue         # definitely not
-    ALL_RPMS+=("$rpm")
+for pattern in "${WANTED_PATTERNS[@]}"; do
+    while IFS= read -r -d '' rpm; do
+        [[ "$rpm" == *debuginfo* ]] && continue
+        [[ "$rpm" == *debugsource* ]] && continue
+        [[ "$rpm" == *-devel-* ]] && continue
+        [[ "$rpm" == *dkms* ]] && continue
+        [[ "$rpm" == *test* ]] && continue
+        ALL_RPMS+=("$rpm")
+    done < <(find "${ZFS_SRC}" "${HOME}/rpmbuild/RPMS" \
+        -name "${pattern}.rpm" -print0 2>/dev/null)
 done
 
 [[ ${#ALL_RPMS[@]} -gt 0 ]] || fail "No RPMs collected"
@@ -171,21 +203,26 @@ for rpm in "${ALL_RPMS[@]}"; do
     say "  ${CYAN}◈${NC}  $(basename "$rpm")"
 done
 
-# Verify kmod-zfs is in the set — it's the critical one
-found_kmod=false
-for rpm in "${ALL_RPMS[@]}"; do
-    [[ "$(basename "$rpm")" == kmod-zfs-* ]] && { found_kmod=true; break; }
-done
-$found_kmod || fail "kmod-zfs RPM not found in collected set"
+# ── Verify full runtime set ───────────────────────────────────
+info "Verifying runtime package set..."
 
-# Verify zfs-dracut is present — needed for initrd
-found_dracut=false
-for rpm in "${ALL_RPMS[@]}"; do
-    [[ "$(basename "$rpm")" == zfs-dracut-* ]] && { found_dracut=true; break; }
-done
-$found_dracut || fail "zfs-dracut RPM not found — initrd hook would be missing"
+check_pkg() {
+    local pattern="$1" label="$2"
+    for rpm in "${ALL_RPMS[@]}"; do
+        [[ "$(basename "$rpm")" == ${pattern} ]] && return 0
+    done
+    fail "${label} not found in collected RPMs"
+}
 
-ok "Critical packages verified: kmod-zfs ✓  zfs-dracut ✓"
+check_pkg "kmod-zfs-*"      "kmod-zfs (kernel module)"
+check_pkg "zfs-[0-9]*"      "zfs (CLI tools)"
+check_pkg "zfs-dracut-*"    "zfs-dracut (initrd hook)"
+check_pkg "libnvpair[0-9]*" "libnvpair (runtime lib)"
+check_pkg "libuutil[0-9]*"  "libuutil (runtime lib)"
+check_pkg "libzfs[0-9]*"    "libzfs (runtime lib)"
+check_pkg "libzpool[0-9]*"  "libzpool (runtime lib)"
+
+ok "All runtime packages verified"
 
 # ── Copy to output ────────────────────────────────────────────
 info "Copying RPMs to /output/..."
