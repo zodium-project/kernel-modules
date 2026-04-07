@@ -147,17 +147,6 @@ dnf download -y --destdir /output/ \
     new-lg4ff-akmod-modules
 ok "Companion packages downloaded"
 
-# ── Sanitize companion RPM filenames ─────────────────────────
-info "Sanitizing companion RPM filenames..."
-for rpm in /output/*.rpm; do
-    clean="$(dirname "$rpm")/$(basename "$rpm" \
-        | sed 's/^[0-9]*://' \
-        | sed 's/:[^/]*/-/g' \
-        | sed 's/\^/-/g')"
-    [[ "$rpm" != "$clean" ]] && mv "$rpm" "$clean" && ok "Renamed: $(basename "$clean")" || true
-done
-ok "Filenames sanitized"
-
 # ── Copy to output ────────────────────────────────────────────
 info "Copying RPMs to /output/..."
 cp "${RPMS[@]}" /output/
