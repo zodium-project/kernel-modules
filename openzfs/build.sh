@@ -255,23 +255,14 @@ chmod 600 /tmp/zodium-sign/private_key.priv
 cp /zodium-mok.der /tmp/zodium-sign/public_key.der
 ok "Signing keys installed"
 
-# ── Install kmod RPM to sign modules ─────────────────────────
-info "Installing ZFS utils RPMs (satisfies kmod-zfs dependencies)..."
-UTILS_RPMS=()
-for rpm in "${ALL_RPMS[@]}"; do
-    base="$(basename "$rpm")"
-    [[ "$base" == kmod-zfs-* ]] && continue
-    UTILS_RPMS+=("$rpm")
-done
-[[ ${#UTILS_RPMS[@]} -gt 0 ]] || fail "No utils RPMs found"
-dnf install -y "${UTILS_RPMS[@]}"
-ok "ZFS utils RPMs installed"
-
-info "Installing kmod-zfs RPM for signing..."
+# ── Install all ZFS RPMs ──────────────────────────────────────
+# Install everything together so dnf can resolve the virtual provide
+# zfs-kmod-common = <version> that the zfs RPM declares and kmod-zfs requires
+info "Installing ZFS RPMs..."
 KMOD_RPM="$(printf '%s\n' "${ALL_RPMS[@]}" | grep 'kmod-zfs-' | grep -v debug | grep -v devel | head -1)"
 [[ -n "${KMOD_RPM}" ]] || fail "kmod-zfs RPM not found"
-dnf install -y "${KMOD_RPM}"
-ok "kmod-zfs installed"
+dnf install -y "${ALL_RPMS[@]}"
+ok "ZFS RPMs installed"
 
 # ── Sign ZFS modules ──────────────────────────────────────────
 info "Signing ZFS kmod modules..."
