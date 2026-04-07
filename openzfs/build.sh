@@ -256,6 +256,17 @@ cp /zodium-mok.der /tmp/zodium-sign/public_key.der
 ok "Signing keys installed"
 
 # ── Install kmod RPM to sign modules ─────────────────────────
+info "Installing ZFS utils RPMs (satisfies kmod-zfs dependencies)..."
+UTILS_RPMS=()
+for rpm in "${ALL_RPMS[@]}"; do
+    base="$(basename "$rpm")"
+    [[ "$base" == kmod-zfs-* ]] && continue
+    UTILS_RPMS+=("$rpm")
+done
+[[ ${#UTILS_RPMS[@]} -gt 0 ]] || fail "No utils RPMs found"
+dnf install -y "${UTILS_RPMS[@]}"
+ok "ZFS utils RPMs installed"
+
 info "Installing kmod-zfs RPM for signing..."
 KMOD_RPM="$(printf '%s\n' "${ALL_RPMS[@]}" | grep 'kmod-zfs-' | grep -v debug | grep -v devel | head -1)"
 [[ -n "${KMOD_RPM}" ]] || fail "kmod-zfs RPM not found"
