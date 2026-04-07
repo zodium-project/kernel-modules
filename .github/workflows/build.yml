@@ -7,7 +7,10 @@ name: Build kmods
 
 on:
   schedule:
-    - cron: '0 2,10,18 * * *'   # 3x daily at 02:00, 10:00, 18:00 UTC
+    - cron: "23 03 * * *"
+    - cron: "47 08 * * *"
+    - cron: "33 14 * * *"
+    - cron: "17 18 * * *"
   workflow_dispatch:              # manual trigger anytime
 
 jobs:
