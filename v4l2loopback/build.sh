@@ -149,10 +149,11 @@ ok "Modules signed"
 info "Repacking kmod RPM with signed modules..."
 REBUILT_DIR="${BUILDROOT}/rebuilt"
 mkdir -p "${REBUILT_DIR}"
-ln -sf / /tmp/buildroot
 KMOD_PKG="$(rpm -q --queryformat '%{NAME}' "kmod-v4l2loopback-${KERNEL_VERSION}" 2>/dev/null | head -1)"
 [[ -n "${KMOD_PKG}" ]] || fail "kmod package not found in RPM DB"
-rpmrebuild --additional=--buildroot=/tmp/buildroot --batch -d "${REBUILT_DIR}" "${KMOD_PKG}"
+RPMREBUILD_TMPDIR="${REBUILT_DIR}/tmp"
+mkdir -p "${RPMREBUILD_TMPDIR}"
+rpmrebuild --tmpdir="${RPMREBUILD_TMPDIR}" --batch -d "${REBUILT_DIR}" "${KMOD_PKG}"
 mapfile -t REBUILT < <(find "${REBUILT_DIR}" -name 'kmod-v4l2loopback-*.rpm')
 [[ ${#REBUILT[@]} -gt 0 ]] || fail "rpmrebuild produced no RPM"
 mv -f "${REBUILT[0]}" "${KMOD_RPM}"
