@@ -298,8 +298,9 @@ KMOD_PKG="$(rpm -q --queryformat '%{NAME}' kmod-zfs-"${KERNEL_VERSION}" 2>/dev/n
 [[ -n "${KMOD_PKG}" ]] || fail "kmod-zfs package not found in RPM DB"
 
 REBUILT_DIR="${WORK_DIR}/rebuilt"
-mkdir -p "${REBUILT_DIR}"
-rpmrebuild --additional=--buildroot=/tmp/buildroot --batch -d "${REBUILT_DIR}" "${KMOD_PKG}"
+RPMREBUILD_TMPDIR="${REBUILT_DIR}/tmp"
+mkdir -p "${REBUILT_DIR}" "${RPMREBUILD_TMPDIR}"
+HOME="${RPMREBUILD_TMPDIR}" rpmrebuild --additional=--buildroot=/tmp/buildroot --batch -d "${REBUILT_DIR}" "${KMOD_PKG}"
 
 mapfile -t REBUILT_RPMS < <(find "${REBUILT_DIR}" -type f -name 'kmod-zfs-*.rpm')
 [[ ${#REBUILT_RPMS[@]} -gt 0 ]] || fail "rpmrebuild failed to produce signed kmod-zfs RPM"
