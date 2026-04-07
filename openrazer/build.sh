@@ -127,8 +127,10 @@ done
 # ── Install kmod RPM, sign modules, repack ───────────────────
 info "Installing kmod RPM for signing..."
 KMOD_RPM="$(printf '%s\n' "${RPMS[@]}" | grep 'kmod-openrazer-' | head -1)"
+COMMON_RPM="$(printf '%s\n' "${RPMS[@]}" | grep 'openrazer-kmod-common-' | head -1)"
 [[ -n "${KMOD_RPM}" ]] || fail "kmod RPM not found"
-dnf install -y "${KMOD_RPM}"
+[[ -n "${COMMON_RPM}" ]] || fail "openrazer-kmod-common RPM not found"
+dnf install -y "${KMOD_RPM}" "${COMMON_RPM}"
 ok "kmod RPM installed"
 
 info "Signing openrazer modules..."
