@@ -17,6 +17,7 @@ fail() { say "${RED}⦻${NC}  $*" >&2; exit 1; }
 
 cleanup() {
     [[ -n "${WORK_DIR:-}" && -d "${WORK_DIR:-}" ]] && rm -rf "${WORK_DIR}"
+    rm -rf /tmp/zodium-sign
 }
 trap cleanup EXIT
 
@@ -243,6 +244,94 @@ check_pkg "libzfs[0-9]*"    "libzfs (runtime lib)"
 check_pkg "libzpool[0-9]*"  "libzpool (runtime lib)"
 
 ok "All runtime packages verified"
+
+# ── Install signing keys ──────────────────────────────────────
+info "Installing signing keys for Secure Boot..."
+[[ -n "${ZODIUM_MOK_KEY:-}" ]] || fail "ZODIUM_MOK_KEY env var not set"
+[[ -f /zodium-mok.der ]] || fail "/zodium-mok.der not found"
+mkdir -p /tmp/zodium-sign
+printf '%s\n' "${ZODIUM_MOK_KEY}" > /tmp/zodium-sign/private_key.priv
+chmod 600 /tmp/zodium-sign/private_key.priv
+cp /zodium-mok.der /tmp/zodium-sign/public_key.der
+ok "Signing keys installed"
+
+# ── Install kmod RPM to sign modules ─────────────────────────
+info "Installing kmod-zfs RPM for signing..."
+KMOD_RPM="$(printf '%s\n' "${ALL_RPMS[@]}" | grep 'kmod-zfs-' | grep -v debug | grep -v devel | head -1)"
+[[ -n "${KMOD_RPM}" ]] || fail "kmod-zfs RPM not found"
+dnf install -y "${KMOD_RPM}"
+ok "kmod-zfs installed"
+
+# ── Sign ZFS modules ──────────────────────────────────────────
+info "Signing ZFS kmod modules..."
+SIGN_FILE="/usr/src/kernels/${KERNEL_VERSION}/scripts/sign-file"
+[[ -x "${SIGN_FILE}" ]] || fail "sign-file not found: ${SIGN_FILE}"
+
+for module in /usr/lib/modules/${KERNEL_VERSION}/extra/zfs/*.ko*; do
+    final="${module}"
+    if [[ "${module}" == *.xz ]]; then
+        xz -d --rm "${module}"
+        module="${module%.xz}"
+        "${SIGN_FILE}" sha256 /tmp/zodium-sign/private_key.priv /tmp/zodium-sign/public_key.der "${module}"
+        xz -C crc32 -f "${module}"
+        final="${module}.xz"
+    elif [[ "${module}" == *.zst ]]; then
+        zstd -d --rm "${module}"
+        module="${module%.zst}"
+        "${SIGN_FILE}" sha256 /tmp/zodium-sign/private_key.priv /tmp/zodium-sign/public_key.der "${module}"
+        zstd -f --rm "${module}"
+        final="${module}.zst"
+    else
+        "${SIGN_FILE}" sha256 /tmp/zodium-sign/private_key.priv /tmp/zodium-sign/public_key.der "${module}"
+    fi
+    ok "Signed: $(basename "${final}")"
+done
+ok "ZFS modules signed"
+
+# ── Repack kmod RPM with signed modules ───────────────────────
+info "Repacking kmod-zfs RPM with signed modules..."
+dnf install -y rpmrebuild
+ln -sf / /tmp/buildroot
+KMOD_PKG="$(rpm -q --queryformat '%{NAME}' kmod-zfs-"${KERNEL_VERSION}" 2>/dev/null | head -1)"
+[[ -n "${KMOD_PKG}" ]] || fail "kmod-zfs package not found in RPM DB"
+
+REBUILT_DIR="${WORK_DIR}/rebuilt"
+mkdir -p "${REBUILT_DIR}"
+rpmrebuild --additional=--buildroot=/tmp/buildroot --batch -d "${REBUILT_DIR}" "${KMOD_PKG}"
+
+mapfile -t REBUILT_RPMS < <(find "${REBUILT_DIR}" -type f -name 'kmod-zfs-*.rpm')
+[[ ${#REBUILT_RPMS[@]} -gt 0 ]] || fail "rpmrebuild failed to produce signed kmod-zfs RPM"
+mv -f "${REBUILT_RPMS[0]}" "${KMOD_RPM}"
+ok "kmod-zfs RPM repacked with signed modules"
+
+# ── Verify module signatures ──────────────────────────────────
+info "Verifying module signatures..."
+for rpm in "${ALL_RPMS[@]}"; do
+    VERIFY_DIR="$(mktemp -d)"
+    pushd "${VERIFY_DIR}" > /dev/null
+    rpm2cpio "${rpm}" | cpio -idm --quiet
+
+    FOUND=0
+    while IFS= read -r -d '' mod; do
+        FOUND=1
+        if [[ "${mod}" == *.xz ]]; then
+            xz -dc "${mod}" > "${mod%.xz}"
+            mod="${mod%.xz}"
+        elif [[ "${mod}" == *.zst ]]; then
+            zstd -dc "${mod}" > "${mod%.zst}"
+            mod="${mod%.zst}"
+        fi
+        signer="$(modinfo -F signer "${mod}" 2>/dev/null || true)"
+        [[ -n "${signer}" ]] \
+            || fail "Unsigned module found in $(basename "${rpm}"): $(basename "${mod}")"
+        ok "Signed by '${signer}': $(basename "${mod}")"
+    done < <(find . -type f \( -name '*.ko' -o -name '*.ko.xz' -o -name '*.ko.zst' \) -print0)
+
+    popd > /dev/null
+    rm -rf "${VERIFY_DIR}"
+    [[ $FOUND -eq 1 ]] && ok "Verified: $(basename "${rpm}")" || true
+done
+ok "All modules verified signed"
 
 # ── Copy to output ────────────────────────────────────────────
 info "Copying RPMs to /output/..."

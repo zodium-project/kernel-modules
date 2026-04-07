@@ -89,12 +89,24 @@ info "Copying spec file..."
 cp /kmods-zodium/v4l2loopback/v4l2loopback.spec "${BUILDROOT}/SPECS/"
 ok "Spec file copied"
 
+# ── Install signing keys ──────────────────────────────────────
+info "Installing signing keys for Secure Boot..."
+[[ -n "${ZODIUM_MOK_KEY:-}" ]] || fail "ZODIUM_MOK_KEY env var not set"
+[[ -f /zodium-mok.der ]] || fail "/zodium-mok.der not found"
+mkdir -p /tmp/zodium-sign
+printf '%s\n' "${ZODIUM_MOK_KEY}" > /tmp/zodium-sign/private_key.priv
+chmod 600 /tmp/zodium-sign/private_key.priv
+cp /zodium-mok.der /tmp/zodium-sign/public_key.der
+ok "Signing keys installed"
+
 # ── Build RPMs ────────────────────────────────────────────────
 info "Building RPMs..."
 rpmbuild -bb "${BUILDROOT}/SPECS/v4l2loopback.spec" \
     --define "_topdir ${BUILDROOT}" \
     --define "kernel_version ${KERNEL_VERSION}" \
-    --define "kmod_version ${V4L2LB_VERSION}"
+    --define "kmod_version ${V4L2LB_VERSION}" \
+    --define "sign_private_key /tmp/zodium-sign/private_key.priv" \
+    --define "sign_public_key /tmp/zodium-sign/public_key.der"
 ok "RPMs built"
 
 # ── Verify & list built RPMs ──────────────────────────────────
@@ -108,6 +120,32 @@ for rpm in "${RPMS[@]}"; do
     say "  ${CYAN}◈${NC}  $(basename "$rpm")"
 done
 
+# ── Verify module signatures ──────────────────────────────────
+info "Verifying module signatures..."
+for rpm in "${RPMS[@]}"; do
+    VERIFY_DIR="$(mktemp -d)"
+    pushd "${VERIFY_DIR}" > /dev/null
+    rpm2cpio "${rpm}" | cpio -idm --quiet
+
+    while IFS= read -r -d '' mod; do
+        if [[ "${mod}" == *.xz ]]; then
+            xz -dc "${mod}" > "${mod%.xz}"
+            mod="${mod%.xz}"
+        elif [[ "${mod}" == *.zst ]]; then
+            zstd -dc "${mod}" > "${mod%.zst}"
+            mod="${mod%.zst}"
+        fi
+        signer="$(modinfo -F signer "${mod}" 2>/dev/null || true)"
+        [[ -n "${signer}" ]] \
+            || fail "Unsigned module found in $(basename "${rpm}"): $(basename "${mod}")"
+        ok "Signed by '${signer}': $(basename "${mod}")"
+    done < <(find . -type f \( -name '*.ko' -o -name '*.ko.xz' -o -name '*.ko.zst' \) -print0)
+
+    popd > /dev/null
+    rm -rf "${VERIFY_DIR}"
+done
+ok "All modules verified signed"
+
 # ── Copy to output ────────────────────────────────────────────
 info "Copying RPMs to /output/..."
 cp "${RPMS[@]}" /output/
@@ -115,7 +153,7 @@ ok "RPMs copied to /output/"
 
 # ── Cleanup ───────────────────────────────────────────────────
 info "Cleaning up build directory..."
-rm -rf "${BUILDROOT}"
+rm -rf "${BUILDROOT}" /tmp/zodium-sign
 ok "Cleanup complete"
 
 say ""

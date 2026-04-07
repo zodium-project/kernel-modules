@@ -86,6 +86,14 @@ make KERNELRELEASE=%{kernel_version} utils -j%(nproc)
 install -d %{buildroot}%{kernel_mod_dir}
 install -m 0644 %{kmod_name}.ko %{buildroot}%{kernel_mod_dir}/
 
+# ── Sign kmod modules for Secure Boot ────────────────────────
+SIGN_FILE="/usr/src/kernels/%{kernel_version}/scripts/sign-file"
+if [[ -x "${SIGN_FILE}" && -f "%{sign_private_key}" && -f "%{sign_public_key}" ]]; then
+    for ko in %{buildroot}%{kernel_mod_dir}/*.ko; do
+        "${SIGN_FILE}" sha256 "%{sign_private_key}" "%{sign_public_key}" "${ko}"
+    done
+fi
+
 # ── utils ─────────────────────────────────────────────────────
 make KERNELRELEASE=%{kernel_version} install-utils \
     DESTDIR=%{buildroot} \
