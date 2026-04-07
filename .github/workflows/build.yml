@@ -225,14 +225,21 @@ jobs:
         with:
           pattern: rpms-*
           path: all-rpms
-          merge-multiple: true
+          merge-multiple: false
 
-      - name: List all collected RPMs
+      - name: List and zip RPMs per kmod
         run: |
           echo "All RPMs collected for release:"
           ls -lh all-rpms/
-          [[ "$(ls all-rpms/*.rpm 2>/dev/null | wc -l)" -gt 0 ]] \
+          [[ "$(find all-rpms -name '*.rpm' | wc -l)" -gt 0 ]] \
             || { echo "No RPMs found"; exit 1; }
+
+          mkdir -p zipped
+          for kmod_dir in all-rpms/rpms-*/; do
+            kmod="$(basename "${kmod_dir}" | sed 's/^rpms-//')"
+            zip -j "zipped/${kmod}.zip" "${kmod_dir}"*.rpm
+            echo "Zipped: ${kmod}.zip ($(ls "${kmod_dir}"*.rpm | wc -l) RPMs)"
+          done
 
       - name: Delete all kernel-* releases and tags
         env:
@@ -274,8 +281,8 @@ jobs:
           All kernel modules built for kernel \`${KERNEL_VERSION}\`.
           Install individual modules in zcore by downloading the relevant RPMs from the assets below."
 
-          gh release upload "${RELEASE_TAG}" all-rpms/*.rpm \
+          gh release upload "${RELEASE_TAG}" zipped/*.zip \
             --repo ${{ github.repository }}
 
           echo "Release ${RELEASE_TAG} created successfully"
-          echo "Assets uploaded: $(ls all-rpms/*.rpm | wc -l) RPMs"
+          echo "Assets uploaded: $(ls zipped/*.zip | wc -l) zips"
