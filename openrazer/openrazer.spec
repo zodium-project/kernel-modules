@@ -86,14 +86,6 @@ make -j%(nproc) driver KERNELDIR=/usr/src/kernels/%{kernel_version}
 install -d %{buildroot}%{kernel_mod_dir}
 install -m 0644 driver/*.ko %{buildroot}%{kernel_mod_dir}/
 
-# ── Sign kmod modules for Secure Boot ────────────────────────
-SIGN_FILE="/usr/src/kernels/%{kernel_version}/scripts/sign-file"
-if [[ -x "${SIGN_FILE}" && -f "%{sign_private_key}" && -f "%{sign_public_key}" ]]; then
-    for ko in %{buildroot}%{kernel_mod_dir}/*.ko; do
-        "${SIGN_FILE}" sha256 "%{sign_private_key}" "%{sign_public_key}" "${ko}"
-    done
-fi
-
 # ── udev rules + razer_mount helper script ────────────────────
 # root Makefile correctly forwards DESTDIR/PREFIX for udev_install
 # installs:

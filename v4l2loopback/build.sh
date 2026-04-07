@@ -59,7 +59,8 @@ dnf install -y --setopt=install_weak_deps=False \
     rpm-build \
     git \
     help2man \
-    perl
+    perl \
+    rpmrebuild
 ok "Build dependencies installed"
 
 # ── Setup rpmbuild dirs ───────────────────────────────────────
@@ -104,9 +105,7 @@ info "Building RPMs..."
 rpmbuild -bb "${BUILDROOT}/SPECS/v4l2loopback.spec" \
     --define "_topdir ${BUILDROOT}" \
     --define "kernel_version ${KERNEL_VERSION}" \
-    --define "kmod_version ${V4L2LB_VERSION}" \
-    --define "sign_private_key /tmp/zodium-sign/private_key.priv" \
-    --define "sign_public_key /tmp/zodium-sign/public_key.der"
+    --define "kmod_version ${V4L2LB_VERSION}"
 ok "RPMs built"
 
 # ── Verify & list built RPMs ──────────────────────────────────
@@ -119,6 +118,45 @@ ok "Built RPMs:"
 for rpm in "${RPMS[@]}"; do
     say "  ${CYAN}◈${NC}  $(basename "$rpm")"
 done
+
+# ── Install kmod RPM, sign modules, repack ───────────────────
+info "Installing kmod RPM for signing..."
+KMOD_RPM="$(printf '%s\n' "${RPMS[@]}" | grep 'kmod-v4l2loopback-' | head -1)"
+[[ -n "${KMOD_RPM}" ]] || fail "kmod RPM not found"
+dnf install -y "${KMOD_RPM}"
+ok "kmod RPM installed"
+
+info "Signing v4l2loopback modules..."
+SIGN_FILE="/usr/src/kernels/${KERNEL_VERSION}/scripts/sign-file"
+[[ -x "${SIGN_FILE}" ]] || fail "sign-file not found: ${SIGN_FILE}"
+
+for module in /usr/lib/modules/${KERNEL_VERSION}/extra/v4l2loopback/*.ko*; do
+    if [[ "${module}" == *.xz ]]; then
+        xz -d --rm "${module}"; module="${module%.xz}"
+        "${SIGN_FILE}" sha256 /tmp/zodium-sign/private_key.priv /tmp/zodium-sign/public_key.der "${module}"
+        xz -C crc32 -f "${module}"
+    elif [[ "${module}" == *.zst ]]; then
+        zstd -d --rm "${module}"; module="${module%.zst}"
+        "${SIGN_FILE}" sha256 /tmp/zodium-sign/private_key.priv /tmp/zodium-sign/public_key.der "${module}"
+        zstd -f --rm "${module}"
+    else
+        "${SIGN_FILE}" sha256 /tmp/zodium-sign/private_key.priv /tmp/zodium-sign/public_key.der "${module}"
+    fi
+    ok "Signed: $(basename "${module}")"
+done
+ok "Modules signed"
+
+info "Repacking kmod RPM with signed modules..."
+REBUILT_DIR="${BUILDROOT}/rebuilt"
+mkdir -p "${REBUILT_DIR}"
+ln -sf / /tmp/buildroot
+KMOD_PKG="$(rpm -q --queryformat '%{NAME}' "kmod-v4l2loopback-${KERNEL_VERSION}" 2>/dev/null | head -1)"
+[[ -n "${KMOD_PKG}" ]] || fail "kmod package not found in RPM DB"
+rpmrebuild --additional=--buildroot=/tmp/buildroot --batch -d "${REBUILT_DIR}" "${KMOD_PKG}"
+mapfile -t REBUILT < <(find "${REBUILT_DIR}" -name 'kmod-v4l2loopback-*.rpm')
+[[ ${#REBUILT[@]} -gt 0 ]] || fail "rpmrebuild produced no RPM"
+mv -f "${REBUILT[0]}" "${KMOD_RPM}"
+ok "kmod RPM repacked"
 
 # ── Verify module signatures ──────────────────────────────────
 info "Verifying module signatures..."
