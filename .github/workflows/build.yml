@@ -7,10 +7,10 @@ name: Build kmods
 
 on:
   schedule:
-    - cron: "23 03 * * *"
-    - cron: "47 08 * * *"
-    - cron: "33 14 * * *"
-    - cron: "17 18 * * *"
+    - cron: "23 04 * * *"
+    - cron: "47 09 * * *"
+    - cron: "33 15 * * *"
+    - cron: "17 19 * * *"
   workflow_dispatch:              # manual trigger anytime
 
 jobs:
