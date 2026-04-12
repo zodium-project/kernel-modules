@@ -14,10 +14,10 @@ on:
       - ".keepalive"
   pull_request:
   schedule:
-    - cron: "23 04 * * *"
-    - cron: "47 09 * * *"
-    - cron: "33 15 * * *"
-    - cron: "17 19 * * *"
+    - cron: "43 04 * * *"
+    - cron: "17 10 * * *"
+    - cron: "13 14 * * *"
+    - cron: "57 18 * * *"
   workflow_dispatch:              # manual trigger anytime
 
 jobs:
