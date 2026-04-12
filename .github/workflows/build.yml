@@ -11,6 +11,7 @@ on:
       - "**.md"
       - ".gitignore"
       - "LICENSE"
+      - ".keepalive"
   pull_request:
   schedule:
     - cron: "23 04 * * *"
@@ -339,3 +340,17 @@ jobs:
           git diff --staged --quiet && echo "No changes" && exit 0
           git commit -m "repo: update kmods repodata $(date -u '+%Y-%m-%d %H:%M UTC')"
           git push
+
+      - name: Checkout
+        if: github.event_name == 'schedule'
+        uses: actions/checkout@v6
+
+      - name: Keepalive
+        if: github.event_name == 'schedule'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          date -u +"%Y-%m-%d %H:%M:%S" > .keepalive
+          git add .keepalive
+          git diff --staged --quiet || git commit -m "chore: keepalive $(date -u +%Y-%m-%d)"
+          git push || true
