@@ -252,6 +252,22 @@ jobs:
           gh release list \
             --repo ${{ github.repository }} \
             --limit 100 \
+            --status draft \
+            --json tagName \
+            --jq '.[].tagName' \
+          | grep '^kernel-' \
+          | while read -r TAG; do
+              echo "  Deleting draft release and tag: ${TAG}"
+              gh release delete "${TAG}" \
+                --repo ${{ github.repository }} \
+                --yes \
+                --cleanup-tag \
+                || true
+            done
+
+          gh release list \
+            --repo ${{ github.repository }} \
+            --limit 100 \
             --json tagName \
             --jq '.[].tagName' \
           | grep '^kernel-' \
