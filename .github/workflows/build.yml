@@ -24,7 +24,6 @@ jobs:
   keepalive:
     name: Keepalive
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule'
     permissions:
       contents: write
     steps:
