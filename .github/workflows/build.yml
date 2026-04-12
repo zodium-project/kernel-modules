@@ -233,19 +233,15 @@ jobs:
           path: all-rpms
           merge-multiple: false
 
-      - name: List and zip RPMs per kmod
+      - name: List RPMs
         run: |
           echo "All RPMs collected for release:"
-          ls -lh all-rpms/
+          find all-rpms -name '*.rpm' | sort
           [[ "$(find all-rpms -name '*.rpm' | wc -l)" -gt 0 ]] \
             || { echo "No RPMs found"; exit 1; }
 
-          mkdir -p zipped
-          for kmod_dir in all-rpms/rpms-*/; do
-            kmod="$(basename "${kmod_dir}" | sed 's/^rpms-//')"
-            zip -j "zipped/${kmod}.zip" "${kmod_dir}"*.rpm
-            echo "Zipped: ${kmod}.zip ($(ls "${kmod_dir}"*.rpm | wc -l) RPMs)"
-          done
+          mkdir -p flat-rpms
+          find all-rpms -name '*.rpm' -exec cp {} flat-rpms/ \;
 
       - name: Delete all kernel-* releases and tags
         env:
@@ -287,8 +283,59 @@ jobs:
           All kernel modules built for kernel \`${KERNEL_VERSION}\`.
           Install individual modules in zcore by downloading the relevant RPMs from the assets below."
 
-          gh release upload "${RELEASE_TAG}" zipped/*.zip \
+          gh release upload "${RELEASE_TAG}" flat-rpms/*.rpm \
             --repo ${{ github.repository }}
 
           echo "Release ${RELEASE_TAG} created successfully"
-          echo "Assets uploaded: $(ls zipped/*.zip | wc -l) zips"
+          echo "Assets uploaded: $(ls flat-rpms/*.rpm | wc -l) RPMs"
+
+  update-repo:
+    name: Update DNF repo metadata
+    runs-on: ubuntu-latest
+    needs: [detect-kernel, publish]
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout website repo
+        uses: actions/checkout@v6
+        with:
+          repository: zodium-project/zodium-project.github.io
+          token: ${{ secrets.REPO_PAT }}
+          path: website
+
+      - name: Install createrepo
+        run: sudo apt-get install -y createrepo-c
+
+      - name: Download all RPMs
+        uses: actions/download-artifact@v6
+        with:
+          pattern: rpms-*
+          path: all-rpms
+          merge-multiple: true
+
+      - name: Update repodata
+        env:
+          KERNEL_VERSION: ${{ needs.detect-kernel.outputs.kernel_version }}
+        run: |
+          REPODIR="website/repo/kmods/x86_64"
+          mkdir -p "$REPODIR"
+          rm -rf "$REPODIR"/repodata
+
+          TMPDIR=$(mktemp -d)
+          find all-rpms -name '*.rpm' -exec cp {} "$TMPDIR/" \;
+          createrepo_c \
+            --baseurl "https://github.com/zodium-project/kmods-zodium/releases/download/kernel-${KERNEL_VERSION}/" \
+            "$TMPDIR"
+
+          cp -r "$TMPDIR/repodata" "$REPODIR/"
+
+      - name: Commit and push repodata
+        run: |
+          cd website
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add repo/
+          git diff --staged --quiet && echo "No changes" && exit 0
+          git commit -m "repo: update kmods repodata $(date -u '+%Y-%m-%d %H:%M UTC')"
+          git push
