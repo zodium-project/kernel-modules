@@ -316,10 +316,8 @@ jobs:
           **updated:** \`$(date -u '+%Y-%m-%d %H:%M UTC')\`
 
           All kernel modules built for kernel \`${KERNEL_VERSION}\`.
-          Install individual modules in zcore by downloading the relevant RPMs from the assets below."
-
-          gh release upload "${RELEASE_TAG}" flat-rpms/*.rpm \
-            --repo ${{ github.repository }}
+          Install individual modules in zcore by downloading the relevant RPMs from the assets below." \
+            flat-rpms/*.rpm
 
           echo "Release ${RELEASE_TAG} created successfully"
           echo "Assets uploaded: $(ls flat-rpms/*.rpm | wc -l) RPMs"
