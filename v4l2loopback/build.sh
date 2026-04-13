@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # ================================================================
 #  v4l2loopback — kmod build script
-#  kmods-zodium : github.com/zodium-project/kmods-zodium
 # ================================================================
 
 set -Eeuo pipefail
@@ -18,8 +17,7 @@ fail() { say "${RED}⦻${NC}  $*" >&2; exit 1; }
 
 say ""
 say "${MAGENTA}${BOLD}╔══════════════════════════════════════════╗${NC}"
-say "${MAGENTA}${BOLD}║   ◈  v4l2loopback kmod build             ║${NC}"
-say "${MAGENTA}${BOLD}║   kmods-zodium                           ║${NC}"
+say "${MAGENTA}${BOLD}║   ◈  v4l2loopback kmod build            ║${NC}"
 say "${MAGENTA}${BOLD}╚══════════════════════════════════════════╝${NC}"
 say ""
 
@@ -53,7 +51,7 @@ ok "v4l2loopback tag: ${V4L2LB_TAG} → RPM version: ${V4L2LB_VERSION}"
 # ── Install build dependencies ────────────────────────────────
 info "Installing build dependencies..."
 dnf install -y --setopt=install_weak_deps=False \
-    "kernel-devel-matched-$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}' | sort -V | tail -1)" \
+    kernel-devel-matched-"$(KERNEL_VERSION)" \
     gcc \
     make \
     rpm-build \

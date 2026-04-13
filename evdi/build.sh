@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # ================================================================
 #  evdi — kmod build script
-#  kmods-zodium : github.com/zodium-project/kmods-zodium
 # ================================================================
 
 set -Eeuo pipefail
@@ -17,8 +16,7 @@ fail() { say "${RED}⦻${NC}  $*" >&2; exit 1; }
 
 say ""
 say "${MAGENTA}${BOLD}╔══════════════════════════════════════════╗${NC}"
-say "${MAGENTA}${BOLD}║   ◈  evdi kmod build                     ║${NC}"
-say "${MAGENTA}${BOLD}║   kmods-zodium                           ║${NC}"
+say "${MAGENTA}${BOLD}║   ◈  evdi kmod build                    ║${NC}"
 say "${MAGENTA}${BOLD}╚══════════════════════════════════════════╝${NC}"
 say ""
 
@@ -27,7 +25,7 @@ chmod 1777 /var/tmp
 
 # ── Upgrade system ────────────────────────────────────────────
 info "Upgrading system packages..."
-dnf upgrade -y
+dnf --refresh upgrade -y
 ok "System upgraded"
 
 # ── Detect kernel version ─────────────────────────────────────
@@ -49,13 +47,13 @@ dnf config-manager addrepo \
     --from-repofile=https://negativo17.org/repos/fedora-multimedia.repo
 dnf config-manager setopt fedora-multimedia.enabled=1
 dnf config-manager setopt fedora-multimedia.priority=90
-dnf --refresh makecache
+dnf makecache
 ok "negativo17 multimedia repo added"
 
 # ── Install build deps ────────────────────────────────────────
 info "Installing build dependencies for kernel: ${KERNEL_VERSION}..."
 dnf install -y --setopt=install_weak_deps=False \
-    "kernel-devel-matched-$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}' | sort -V | tail -1)" \
+    kernel-devel-matched-"$(KERNEL_VERSION)" \
     akmods
 ok "Build dependencies installed"
 
@@ -171,6 +169,6 @@ ok "RPMs copied to /output/"
 
 say ""
 say "${MAGENTA}${BOLD}╔══════════════════════════════════════════════════╗${NC}"
-say "${MAGENTA}${BOLD}║   ◆  evdi kmod build complete                    ║${NC}"
+say "${MAGENTA}${BOLD}║   ◆  evdi kmod build complete                   ║${NC}"
 say "${MAGENTA}${BOLD}╚══════════════════════════════════════════════════╝${NC}"
 say ""

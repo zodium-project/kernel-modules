@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # ================================================================
 #  openrazer — kmod build script
-#  kmods-zodium : github.com/zodium-project/kmods-zodium
 # ================================================================
 
 set -Eeuo pipefail
@@ -53,7 +52,7 @@ ok "openrazer tag: ${OPENRAZER_TAG} → RPM version: ${OPENRAZER_VERSION}"
 # ── Install build dependencies ────────────────────────────────
 info "Installing build dependencies..."
 dnf install -y --setopt=install_weak_deps=False \
-    "kernel-devel-matched-$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}' | sort -V | tail -1)" \
+    kernel-devel-matched-"$(KERNEL_VERSION)" \
     gcc \
     make \
     rpm-build \

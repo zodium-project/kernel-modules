@@ -1,6 +1,5 @@
 # ================================================================
 #  openrazer — RPM spec
-#  kmods-zodium : github.com/zodium-project/kmods-zodium
 # ================================================================
 
 # ── Disable debug package ─────────────────────────────────────
@@ -11,13 +10,12 @@
 
 # ================================================================
 #  kmod package — kernel modules only
-#  name includes kernel version per kmod naming convention
 # ================================================================
 Name:           kmod-%{kmod_name}-%{kernel_version}
 Version:        %{kmod_version}
 Release:        1%{?dist}
 Summary:        OpenRazer Razer hardware kernel modules for %{kernel_version}
-License:        GPL-2.0-only
+License:        GPL-3.0
 URL:            https://github.com/openrazer/openrazer
 Source0:        %{kmod_name}-%{kmod_version}.tar.gz
 
@@ -32,15 +30,13 @@ Requires:       %{kmod_name}-kmod-common = %{kmod_version}
 OpenRazer kernel modules built for kernel %{kernel_version}.
 Provides HID drivers for Razer peripherals (keyboard, mouse, kraken headset,
 and accessories) via razerkbd, razermouse, razerkraken, razeraccessory.
-Built by kmods-zodium for the Zodium Project / zcore Linux.
 
 # ================================================================
-#  common subpackage — daemon, udev rules, plugdev group, Python library
-#  no kernel version in name, stable across kernel updates
+#  common subpackage — daemon, udev rules, plugdev group
 # ================================================================
 %package -n %{kmod_name}-kmod-common
 Summary:        OpenRazer daemon, udev rules and Python library
-License:        GPL-2.0-only
+License:        GPL-3.0
 # ── runtime deps (daemon — from daemon/setup.py install_requires) ─
 Requires:       python3
 Requires:       python3-daemonize

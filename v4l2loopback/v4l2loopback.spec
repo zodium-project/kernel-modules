@@ -11,7 +11,6 @@
 
 # ================================================================
 #  kmod package — kernel module only
-#  name includes kernel version per kmod naming convention
 # ================================================================
 Name:           kmod-%{kmod_name}-%{kernel_version}
 Version:        %{kmod_version}
@@ -31,7 +30,6 @@ Requires:       kernel
 %description
 v4l2loopback kernel module built for kernel %{kernel_version}.
 Allows creation of virtual V4L2 loopback video devices.
-Built by kmods-zodium for the Zodium Project / zcore Linux.
 
 # ================================================================
 #  common-utils subpackage — userspace tools

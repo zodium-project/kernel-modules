@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # ================================================================
 #  openzfs — kmod + utils build script
-#  kmods-zodium : github.com/zodium-project/kmods-zodium
 # ================================================================
 
 set -Eeuo pipefail
@@ -23,8 +22,7 @@ trap cleanup EXIT
 
 say ""
 say "${MAGENTA}${BOLD}╔══════════════════════════════════════════╗${NC}"
-say "${MAGENTA}${BOLD}║   ◈  openzfs kmod + utils build          ║${NC}"
-say "${MAGENTA}${BOLD}║   kmods-zodium                           ║${NC}"
+say "${MAGENTA}${BOLD}║   ◈  openzfs kmod + utils build         ║${NC}"
 say "${MAGENTA}${BOLD}╚══════════════════════════════════════════╝${NC}"
 say ""
 
@@ -38,27 +36,18 @@ ok "System upgraded"
 
 # ── Detect kernel version ─────────────────────────────────────
 info "Detecting latest kernel version..."
-# KERNEL_NAME allows future flexibility for non-stock kernels
-# defaults to 'kernel' for stock Fedora
 KERNEL_NAME="${KERNEL_NAME:-kernel}"
 KERNEL_VERSION="$(rpm -q "${KERNEL_NAME}" \
     --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' \
     | sort -V | tail -1)"
 [[ -n "$KERNEL_VERSION" ]] || fail "Could not detect kernel version"
 ok "Kernel: ${KERNEL_NAME} — ${KERNEL_VERSION}"
-
 KERNEL_SRC="/usr/src/kernels/${KERNEL_VERSION}"
 
 # ── Install build dependencies ────────────────────────────────
 info "Installing build dependencies..."
-if [[ "${KERNEL_NAME}" == "kernel" ]]; then
-    KERNEL_DEVEL_PKG="kernel-devel-matched-${KERNEL_VERSION}"
-else
-    KERNEL_DEVEL_PKG="${KERNEL_NAME}-devel-${KERNEL_VERSION}"
-fi
-
 dnf install -y --setopt=install_weak_deps=False \
-    "${KERNEL_DEVEL_PKG}" \
+    kernel-devel-matched="$(KERNEL_VERSION)" \
     gcc \
     make \
     autoconf \
@@ -343,6 +332,6 @@ ok "RPMs copied to /output/"
 
 say ""
 say "${MAGENTA}${BOLD}╔══════════════════════════════════════════╗${NC}"
-say "${MAGENTA}${BOLD}║   ◆  openzfs build complete              ║${NC}"
+say "${MAGENTA}${BOLD}║   ◆  openzfs build complete             ║${NC}"
 say "${MAGENTA}${BOLD}╚══════════════════════════════════════════╝${NC}"
 say ""
