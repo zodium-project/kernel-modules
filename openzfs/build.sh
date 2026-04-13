@@ -36,8 +36,7 @@ ok "System upgraded"
 
 # ── Detect kernel version ─────────────────────────────────────
 info "Detecting latest kernel version..."
-KERNEL_NAME="${KERNEL_NAME:-kernel}"
-KERNEL_VERSION="$(rpm -q "${KERNEL_NAME}" \
+KERNEL_VERSION="$(rpm -q kernel \
     --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' \
     | sort -V | tail -1)"
 [[ -n "$KERNEL_VERSION" ]] || fail "Could not detect kernel version"
