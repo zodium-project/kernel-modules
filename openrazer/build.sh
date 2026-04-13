@@ -159,7 +159,8 @@ KMOD_PKG="$(rpm -q --queryformat '%{NAME}' "kmod-openrazer-${KERNEL_VERSION}" 2>
 [[ -n "${KMOD_PKG}" ]] || fail "kmod package not found in RPM DB"
 RPMREBUILD_TMPDIR="${REBUILT_DIR}/tmp"
 mkdir -p "${RPMREBUILD_TMPDIR}"
-HOME="${RPMREBUILD_TMPDIR}" rpmrebuild --batch -d "${REBUILT_DIR}" "${KMOD_PKG}"
+ln -sf / /tmp/buildroot
+HOME="${RPMREBUILD_TMPDIR}" rpmrebuild --additional=--buildroot=/tmp/buildroot --batch -d "${REBUILT_DIR}" "${KMOD_PKG}"
 mapfile -t REBUILT < <(find "${REBUILT_DIR}" -name 'kmod-openrazer-*.rpm')
 [[ ${#REBUILT[@]} -gt 0 ]] || fail "rpmrebuild produced no RPM"
 mv -f "${REBUILT[0]}" "${KMOD_RPM}"

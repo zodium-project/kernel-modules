@@ -15,11 +15,11 @@ Name:           kmod-%{kmod_name}-%{kernel_version}
 Version:        %{kmod_version}
 Release:        1%{?dist}
 Summary:        OpenRazer Razer hardware kernel modules for %{kernel_version}
-License:        GPL-3.0
+License:        GPL-2.0
 URL:            https://github.com/openrazer/openrazer
 Source0:        %{kmod_name}-%{kmod_version}.tar.gz
 
-BuildRequires:  kernel-devel
+BuildRequires:  kernel-devel-matched = %{kernel_version}
 BuildRequires:  gcc
 BuildRequires:  make
 
@@ -36,7 +36,7 @@ and accessories) via razerkbd, razermouse, razerkraken, razeraccessory.
 # ================================================================
 %package -n %{kmod_name}-kmod-common
 Summary:        OpenRazer daemon, udev rules and Python library
-License:        GPL-3.0
+License:        GPL-2.0
 # ── runtime deps (daemon — from daemon/setup.py install_requires) ─
 Requires:       python3
 Requires:       python3-daemonize
@@ -155,15 +155,15 @@ depmod -a %{kernel_version} || :
 %{_mandir}/man5/razer.conf.5*
 %{_mandir}/man8/openrazer-daemon.8*
 # udev rules + mount helper script
-%{_prefix}/lib/udev/rules.d/99-razer.rules
-%{_prefix}/lib/udev/razer_mount
+%{_udevrulesdir}/99-razer.rules
+%{_udevrulesdir}/../razer_mount
 # Python packages installed by setup.py:
 #   daemon/setup.py  → name="openrazer_daemon"  → openrazer_daemon/
 #   pylib/setup.py   → name="openrazer"          → openrazer/
-/usr/lib/python3*/site-packages/openrazer/
-/usr/lib/python3*/site-packages/openrazer_daemon/
-/usr/lib/python3*/site-packages/openrazer*.egg-info/
-/usr/lib/python3*/site-packages/openrazer_daemon*.egg-info/
+%{python3_sitelib}/openrazer/
+%{python3_sitelib}/openrazer_daemon/
+%{python3_sitelib}/openrazer-*.egg-info/
+%{python3_sitelib}/openrazer_daemon-*.egg-info/
 
 # ================================================================
 #  Changelog
