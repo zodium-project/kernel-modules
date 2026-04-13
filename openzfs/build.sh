@@ -46,7 +46,7 @@ KERNEL_SRC="/usr/src/kernels/${KERNEL_VERSION}"
 # ── Install build dependencies ────────────────────────────────
 info "Installing build dependencies..."
 dnf install -y --setopt=install_weak_deps=False \
-    kernel-devel-matched="${KERNEL_VERSION}" \
+    kernel-devel-matched-"${KERNEL_VERSION}" \
     gcc \
     make \
     autoconf \
