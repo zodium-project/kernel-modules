@@ -155,15 +155,15 @@ depmod -a %{kernel_version} || :
 %{_mandir}/man5/razer.conf.5*
 %{_mandir}/man8/openrazer-daemon.8*
 # udev rules + mount helper script
-%{_udevrulesdir}/99-razer.rules
-%{_udevrulesdir}/../razer_mount
+%{_prefix}/lib/udev/rules.d/99-razer.rules
+%{_prefix}/lib/udev/razer_mount
 # Python packages installed by setup.py:
 #   daemon/setup.py  → name="openrazer_daemon"  → openrazer_daemon/
 #   pylib/setup.py   → name="openrazer"          → openrazer/
-%{python3_sitelib}/openrazer/
-%{python3_sitelib}/openrazer_daemon/
-%{python3_sitelib}/openrazer-*.egg-info/
-%{python3_sitelib}/openrazer_daemon-*.egg-info/
+/usr/lib/python3*/site-packages/openrazer/
+/usr/lib/python3*/site-packages/openrazer_daemon/
+/usr/lib/python3*/site-packages/openrazer*.egg-info/
+/usr/lib/python3*/site-packages/openrazer_daemon*.egg-info/
 
 # ================================================================
 #  Changelog
