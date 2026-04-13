@@ -53,7 +53,7 @@ ok "negativo17 multimedia repo added"
 # ── Install build deps ────────────────────────────────────────
 info "Installing build dependencies for kernel: ${KERNEL_VERSION}..."
 dnf install -y --setopt=install_weak_deps=False \
-    kernel-devel-matched-"$(KERNEL_VERSION)" \
+    kernel-devel-matched-"${KERNEL_VERSION}" \
     akmods
 ok "Build dependencies installed"
 

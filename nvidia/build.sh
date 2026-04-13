@@ -55,7 +55,7 @@ ok "negativo17 repo added"
 # ── Install build deps ────────────────────────────────────────
 info "Installing build dependencies for kernel: ${KERNEL_VERSION}..."
 dnf install -y --setopt=install_weak_deps=False \
-    kernel-devel-matched-"$(KERNEL_VERSION)" \
+    kernel-devel-matched-"${KERNEL_VERSION}" \
     akmods \
     nvidia-kmod-common \
     nvidia-modprobe

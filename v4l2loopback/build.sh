@@ -51,7 +51,7 @@ ok "v4l2loopback tag: ${V4L2LB_TAG} → RPM version: ${V4L2LB_VERSION}"
 # ── Install build dependencies ────────────────────────────────
 info "Installing build dependencies..."
 dnf install -y --setopt=install_weak_deps=False \
-    kernel-devel-matched-"$(KERNEL_VERSION)" \
+    kernel-devel-matched-"${KERNEL_VERSION}" \
     gcc \
     make \
     rpm-build \

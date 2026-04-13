@@ -52,7 +52,7 @@ ok "openrazer tag: ${OPENRAZER_TAG} → RPM version: ${OPENRAZER_VERSION}"
 # ── Install build dependencies ────────────────────────────────
 info "Installing build dependencies..."
 dnf install -y --setopt=install_weak_deps=False \
-    kernel-devel-matched-"$(KERNEL_VERSION)" \
+    kernel-devel-matched-"${KERNEL_VERSION}" \
     gcc \
     make \
     rpm-build \
