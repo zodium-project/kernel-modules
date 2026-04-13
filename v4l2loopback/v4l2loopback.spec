@@ -20,7 +20,7 @@ License:        GPL-2.0-only
 URL:            https://github.com/v4l2loopback/v4l2loopback
 Source0:        %{kmod_name}-%{kmod_version}.tar.gz
 
-BuildRequires:  kernel-devel
+BuildRequires:  kernel-devel-matched = %{kernel_version}
 BuildRequires:  gcc
 BuildRequires:  make
 
