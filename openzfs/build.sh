@@ -40,7 +40,7 @@ KERNEL_VERSION="$(rpm -q kernel \
     --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' \
     | sort -V | tail -1)"
 [[ -n "$KERNEL_VERSION" ]] || fail "Could not detect kernel version"
-ok "Kernel: ${KERNEL_NAME} — ${KERNEL_VERSION}"
+ok "Kernel: ${KERNEL_VERSION}"
 KERNEL_SRC="/usr/src/kernels/${KERNEL_VERSION}"
 
 # ── Install build dependencies ────────────────────────────────
@@ -158,16 +158,6 @@ tar -z -x --no-same-owner --no-same-permissions \
 ZFS_SRC="${WORK_DIR}/zfs-${ZFS_VERSION}"
 [[ -d "$ZFS_SRC" ]] || fail "Source directory not found after extraction"
 ok "Source extracted: ${ZFS_SRC}"
-
-# ── Patch spec kernel-devel dep for non-stock kernels ─────────
-# ensures rpm spec depends on correct kernel-devel package
-# e.g. kernel-longterm-devel instead of kernel-devel
-if [[ "${KERNEL_NAME}" != "kernel" ]]; then
-    info "Patching spec files for kernel name: ${KERNEL_NAME}..."
-    sed -i "s|kernel-devel|${KERNEL_NAME}-devel|g" \
-        "${ZFS_SRC}"/rpm/*/*spec.in
-    ok "Spec files patched"
-fi
 
 # ── Configure ─────────────────────────────────────────────────
 info "Configuring for kernel ${KERNEL_VERSION}..."
