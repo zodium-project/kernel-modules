@@ -19,7 +19,7 @@ License:        GPL-2.0
 URL:            https://github.com/openrazer/openrazer
 Source0:        %{kmod_name}-%{kmod_version}.tar.gz
 
-BuildRequires:  kernel-devel-matched-%{kernel_version}
+BuildRequires:  kernel-devel
 BuildRequires:  gcc
 BuildRequires:  make
 
