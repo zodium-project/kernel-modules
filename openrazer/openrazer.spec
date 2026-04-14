@@ -93,7 +93,8 @@ done
 
 # ── kmod — copy all 4 .ko files to extra/openrazer/ ──────────
 install -d %{buildroot}%{kernel_mod_dir}
-install -m 0644 driver/*.ko %{buildroot}%{kernel_mod_dir}/
+cp -p driver/*.ko %{buildroot}%{kernel_mod_dir}/
+chmod 0644 %{buildroot}%{kernel_mod_dir}/*.ko
 
 # ── udev rules + razer_mount helper script ────────────────────
 # root Makefile correctly forwards DESTDIR/PREFIX for udev_install
