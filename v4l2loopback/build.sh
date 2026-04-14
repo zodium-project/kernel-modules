@@ -54,7 +54,8 @@ ok "Terra repo added"
 info "Installing build dependencies for kernel: ${KERNEL_VERSION}..."
 dnf install -y --setopt=install_weak_deps=False \
     kernel-devel-matched-"${KERNEL_VERSION}" \
-    akmods
+    akmods \
+    help2man
 ok "Build dependencies installed"
 
 # ── Install signing keys for akmods ──────────────────────────
