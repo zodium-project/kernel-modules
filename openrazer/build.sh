@@ -17,8 +17,7 @@ fail() { say "${RED}⦻${NC}  $*" >&2; exit 1; }
 
 say ""
 say "${MAGENTA}${BOLD}╔══════════════════════════════════════════╗${NC}"
-say "${MAGENTA}${BOLD}║   ◈  openrazer kmod build                ║${NC}"
-say "${MAGENTA}${BOLD}║   kmods-zodium                           ║${NC}"
+say "${MAGENTA}${BOLD}║   ◈  openrazer kmod build               ║${NC}"
 say "${MAGENTA}${BOLD}╚══════════════════════════════════════════╝${NC}"
 say ""
 
@@ -164,6 +163,6 @@ ok "Cleanup complete"
 
 say ""
 say "${MAGENTA}${BOLD}╔══════════════════════════════════════════════════╗${NC}"
-say "${MAGENTA}${BOLD}║   ◆  openrazer build complete                    ║${NC}"
+say "${MAGENTA}${BOLD}║   ◆  openrazer build complete                   ║${NC}"
 say "${MAGENTA}${BOLD}╚══════════════════════════════════════════════════╝${NC}"
 say ""
