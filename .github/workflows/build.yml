@@ -107,10 +107,10 @@ jobs:
           if [[ "${{ matrix.kmod }}" == "v4l2loopback" ]]; then
             ls output/${{ matrix.kmod }}/kmod-${{ matrix.kmod }}-*.rpm \
               || { echo "kmod package missing"; exit 1; }
-            ls output/${{ matrix.kmod }}/${{ matrix.kmod }}-kmod-common-utils-*.rpm \
-              || { echo "utils package missing"; exit 1; }
-            ls output/${{ matrix.kmod }}/${{ matrix.kmod }}-kmod-common-devel-*.rpm \
-              || { echo "devel package missing"; exit 1; }
+            ls output/${{ matrix.kmod }}/v4l2loopback-akmod-modules-*.rpm \
+              || { echo "v4l2loopback-akmod-modules package missing"; exit 1; }
+            ls output/${{ matrix.kmod }}/v4l2loopback-*.rpm \
+              || { echo "v4l2loopback companion package missing"; exit 1; }
           fi
 
           # ── openrazer expected packages ─────────────────────
