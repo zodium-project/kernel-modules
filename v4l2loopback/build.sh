@@ -153,6 +153,6 @@ ok "RPMs copied to /output/"
 
 say ""
 say "${MAGENTA}${BOLD}╔══════════════════════════════════════════════════╗${NC}"
-say "${MAGENTA}${BOLD}║   ◆  v4l2loopback build complete                 ║${NC}"
+say "${MAGENTA}${BOLD}║   ◆  v4l2loopback build complete                ║${NC}"
 say "${MAGENTA}${BOLD}╚══════════════════════════════════════════════════╝${NC}"
 say ""

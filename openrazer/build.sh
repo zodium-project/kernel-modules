@@ -5,7 +5,6 @@
 
 set -Eeuo pipefail
 
-# ── Styling ───────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; MAGENTA='\033[0;35m'; BOLD='\033[1m'; NC='\033[0m'
 
@@ -21,8 +20,8 @@ say "${MAGENTA}${BOLD}║   ◈  openrazer kmod build               ║${NC}"
 say "${MAGENTA}${BOLD}╚══════════════════════════════════════════╝${NC}"
 say ""
 
-# ── Paths ─────────────────────────────────────────────────────
-BUILDROOT="/kmods-zodium/rpmbuild"
+mkdir -p /var/tmp
+chmod 1777 /var/tmp
 
 # ── Upgrade system ────────────────────────────────────────────
 info "Upgrading system packages..."
@@ -37,86 +36,73 @@ KERNEL_VERSION="$(rpm -q kernel \
 [[ -n "$KERNEL_VERSION" ]] || fail "Could not detect kernel version"
 ok "Kernel version: ${KERNEL_VERSION}"
 
-# ── Detect openrazer version ──────────────────────────────────
-info "Detecting latest openrazer release..."
-OPENRAZER_TAG="$(curl -fLsS \
-    https://api.github.com/repos/openrazer/openrazer/releases/latest \
-    | grep '"tag_name"' | cut -d'"' -f4)"
-[[ -n "$OPENRAZER_TAG" ]] || fail "Could not detect latest openrazer release"
+# ── Install dnf5 plugins ──────────────────────────────────────
+info "Installing dnf5 plugins..."
+dnf install -y --setopt=install_weak_deps=False dnf5-plugins
+ok "dnf5 plugins installed"
 
-# strip leading v for RPM version field
-OPENRAZER_VERSION="${OPENRAZER_TAG#v}"
-ok "openrazer tag: ${OPENRAZER_TAG} → RPM version: ${OPENRAZER_VERSION}"
+# ── Add ublue-os/akmods COPR repo ────────────────────────────
+info "Adding ublue-os/akmods COPR repo..."
+dnf copr enable -y ublue-os/akmods
+dnf --refresh makecache
+ok "ublue-os/akmods COPR repo added"
 
 # ── Install build dependencies ────────────────────────────────
-info "Installing build dependencies..."
+info "Installing build dependencies for kernel: ${KERNEL_VERSION}..."
 dnf install -y --setopt=install_weak_deps=False \
     kernel-devel-matched-"${KERNEL_VERSION}" \
-    gcc \
-    make \
-    rpm-build \
-    git \
-    python3 \
-    python3-setuptools \
-    python3-dbus \
-    python3-gobject \
-    python3-pyudev \
-    python3-daemonize \
-    python3-setproctitle \
-    python3-devel \
-    python3-rpm-macros \
-    systemd-rpm-macros
+    akmods
 ok "Build dependencies installed"
 
-# ── Setup rpmbuild dirs ───────────────────────────────────────
-info "Setting up rpmbuild directories..."
-mkdir -p "${BUILDROOT}/BUILD" \
-         "${BUILDROOT}/RPMS" \
-         "${BUILDROOT}/SOURCES" \
-         "${BUILDROOT}/SPECS" \
-         "${BUILDROOT}/SRPMS"
-ok "rpmbuild directories ready"
-
-# ── Clone openrazer source at latest release tag ──────────────
-info "Cloning openrazer ${OPENRAZER_TAG}..."
-git clone --depth=1 --branch "${OPENRAZER_TAG}" \
-    https://github.com/openrazer/openrazer.git \
-    "${BUILDROOT}/BUILD/openrazer-${OPENRAZER_VERSION}"
-ok "Source cloned"
-
-# ── Create source tarball ─────────────────────────────────────
-info "Creating source tarball..."
-tar -czf "${BUILDROOT}/SOURCES/openrazer-${OPENRAZER_VERSION}.tar.gz" \
-    -C "${BUILDROOT}/BUILD" openrazer-${OPENRAZER_VERSION}
-ok "Source tarball created: openrazer-${OPENRAZER_VERSION}.tar.gz"
-
-# ── Copy spec ─────────────────────────────────────────────────
-info "Copying spec file..."
-cp /kmods-zodium/openrazer/openrazer.spec "${BUILDROOT}/SPECS/"
-ok "Spec file copied"
-
-# ── Install signing keys ──────────────────────────────────────
+# ── Install signing keys for akmods ──────────────────────────
 info "Installing signing keys for Secure Boot..."
 [[ -n "${ZODIUM_MOK_KEY:-}" ]] || fail "ZODIUM_MOK_KEY env var not set"
 [[ -f /zodium-mok.der ]] || fail "/zodium-mok.der not found"
-mkdir -p /tmp/zodium-sign
-printf '%s\n' "${ZODIUM_MOK_KEY}" > /tmp/zodium-sign/private_key.priv
-chmod 600 /tmp/zodium-sign/private_key.priv
-cp /zodium-mok.der /tmp/zodium-sign/public_key.der
+
+mkdir -p /etc/pki/akmods/private /etc/pki/akmods/certs
+chown root:akmods /etc/pki/akmods/private /etc/pki/akmods/certs
+chmod 750 /etc/pki/akmods/private
+chmod 755 /etc/pki/akmods/certs
+
+printf '%s\n' "${ZODIUM_MOK_KEY}" > /etc/pki/akmods/private/private_key.priv
+chown root:akmods /etc/pki/akmods/private/private_key.priv
+chmod 640 /etc/pki/akmods/private/private_key.priv
+
+cp /zodium-mok.der /etc/pki/akmods/certs/public_key.der
+chown root:akmods /etc/pki/akmods/certs/public_key.der
+chmod 640 /etc/pki/akmods/certs/public_key.der
+
 ok "Signing keys installed"
 
-# ── Build RPMs ────────────────────────────────────────────────
-info "Building RPMs..."
-rpmbuild -bb "${BUILDROOT}/SPECS/openrazer.spec" \
-    --define "_topdir ${BUILDROOT}" \
-    --define "kernel_version ${KERNEL_VERSION}" \
-    --define "kmod_version ${OPENRAZER_VERSION}"
-ok "RPMs built"
+# ── Patch akmodsbuild for container compatibility ─────────────
+warn "Applying akmodsbuild container workaround..."
+cp /usr/sbin/akmodsbuild /usr/sbin/akmodsbuild.backup
+sed -i '/if \[\[ -w \/var \]\] ; then/,/fi/d' /usr/sbin/akmodsbuild
+ok "akmodsbuild patched"
 
-# ── Verify & list built RPMs ──────────────────────────────────
-info "Verifying built RPMs..."
-mapfile -t RPMS < <(find "${BUILDROOT}/RPMS" -name '*.rpm' | sort)
-[[ ${#RPMS[@]} -gt 0 ]] || fail "No RPMs found after build"
+# ── Install akmod source package ──────────────────────────────
+info "Installing akmod-openrazer..."
+dnf install -y --setopt=install_weak_deps=False akmod-openrazer
+ok "akmod-openrazer installed"
+
+# ── Build kmod ────────────────────────────────────────────────
+info "Building openrazer kmod for ${KERNEL_VERSION}..."
+akmods --force --kernels "${KERNEL_VERSION}" --kmod openrazer
+ok "openrazer kmod built"
+
+# ── Restore akmodsbuild ───────────────────────────────────────
+mv /usr/sbin/akmodsbuild.backup /usr/sbin/akmodsbuild
+ok "akmodsbuild restored"
+
+# ── Locate built RPM ──────────────────────────────────────────
+info "Locating built openrazer kmod RPM..."
+shopt -s nullglob
+RPMS=(/var/cache/akmods/openrazer/kmod-openrazer-*.rpm)
+shopt -u nullglob
+
+[[ ${#RPMS[@]} -gt 0 ]] || \
+    (cat /var/cache/akmods/openrazer/*.failed.log 2>/dev/null; \
+     fail "No openrazer kmod RPM found in /var/cache/akmods/openrazer/")
 
 ok "Built RPMs:"
 for rpm in "${RPMS[@]}"; do
@@ -125,9 +111,7 @@ done
 
 # ── Verify module signatures ──────────────────────────────────
 info "Verifying module signatures..."
-KMOD_RPM="$(printf '%s\n' "${RPMS[@]}" | grep 'kmod-openrazer-' | head -1)"
-[[ -n "${KMOD_RPM}" ]] || fail "kmod RPM not found for verification"
-for rpm in "${KMOD_RPM}"; do
+for rpm in "${RPMS[@]}"; do
     VERIFY_DIR="$(mktemp -d)"
     pushd "${VERIFY_DIR}" > /dev/null
     rpm2cpio "${rpm}" | cpio -idm --quiet
@@ -151,15 +135,16 @@ for rpm in "${KMOD_RPM}"; do
 done
 ok "All modules verified signed"
 
+# ── Download companion packages ───────────────────────────────
+info "Downloading openrazer companion packages..."
+dnf download -y --destdir /output/ \
+    openrazer-kmod-common
+ok "Companion packages downloaded"
+
 # ── Copy to output ────────────────────────────────────────────
 info "Copying RPMs to /output/..."
 cp "${RPMS[@]}" /output/
 ok "RPMs copied to /output/"
-
-# ── Cleanup ───────────────────────────────────────────────────
-info "Cleaning up build directory..."
-rm -rf "${BUILDROOT}" /tmp/zodium-sign
-ok "Cleanup complete"
 
 say ""
 say "${MAGENTA}${BOLD}╔══════════════════════════════════════════════════╗${NC}"
