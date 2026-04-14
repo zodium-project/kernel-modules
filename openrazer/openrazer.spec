@@ -50,6 +50,9 @@ Requires:       xautomation
 Requires:       python3-numpy
 # ── build deps (needed for setup.py install at rpmbuild time) ────
 BuildRequires:  python3
+BuildRequires:  python3-devel
+BuildRequires:  python3-rpm-macros
+BuildRequires:  systemd-rpm-macros
 BuildRequires:  python3-setuptools
 BuildRequires:  python3-dbus
 BuildRequires:  python3-gobject
@@ -106,7 +109,7 @@ make udev_install DESTDIR=%{buildroot} PREFIX=%{_prefix} UDEV_PREFIX=%{_prefix}
 #   %{_bindir}/openrazer-daemon
 #   %{_datadir}/openrazer/razer.conf.example
 #   %{_datadir}/dbus-1/services/org.razer.service
-#   %{_prefix}/lib/systemd/user/openrazer-daemon.service
+#   %{_userunitdir}/openrazer-daemon.service
 #   %{_mandir}/man5/razer.conf.5.gz
 #   %{_mandir}/man8/openrazer-daemon.8.gz
 #   + openrazer_daemon Python package via setup.py into site-packages
@@ -160,20 +163,20 @@ depmod -a %{kernel_version} || :
 # D-Bus session service activation file
 %{_datadir}/dbus-1/services/org.razer.service
 # systemd USER service (not system-wide)
-%{_prefix}/lib/systemd/user/openrazer-daemon.service
+%{_userunitdir}/openrazer-daemon.service
 # man pages (installed gzipped by daemon Makefile)
 %{_mandir}/man5/razer.conf.5*
 %{_mandir}/man8/openrazer-daemon.8*
 # udev rules + mount helper script
-%{_prefix}/lib/udev/rules.d/99-razer.rules
-%{_prefix}/lib/udev/razer_mount
+%{_udevrulesdir}/99-razer.rules
+%{_udevrulesdir}/../razer_mount
 # Python packages installed by setup.py:
 #   daemon/setup.py  → name="openrazer_daemon"  → openrazer_daemon/
 #   pylib/setup.py   → name="openrazer"          → openrazer/
-/usr/lib/python3*/site-packages/openrazer/
-/usr/lib/python3*/site-packages/openrazer_daemon/
-/usr/lib/python3*/site-packages/openrazer-*.egg-info/
-/usr/lib/python3*/site-packages/openrazer_daemon-*.egg-info/
+%{python3_sitelib}/openrazer/
+%{python3_sitelib}/openrazer_daemon/
+%{python3_sitelib}/openrazer-*.egg-info/
+%{python3_sitelib}/openrazer_daemon-*.egg-info/
 
 # ================================================================
 #  Changelog
