@@ -63,7 +63,10 @@ dnf install -y --setopt=install_weak_deps=False \
     python3-gobject \
     python3-pyudev \
     python3-daemonize \
-    python3-setproctitle
+    python3-setproctitle \
+    python3-devel \
+    python3-rpm-macros \
+    systemd-rpm-macros
 ok "Build dependencies installed"
 
 # ── Setup rpmbuild dirs ───────────────────────────────────────
