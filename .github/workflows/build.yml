@@ -32,11 +32,17 @@ jobs:
 
       - name: Keepalive
         run: |
+          TODAY="$(date -u +%Y-%m-%d)"
+          LAST="$(cat .keepalive 2>/dev/null | cut -d' ' -f1 || true)"
+          if [[ "${LAST}" == "${TODAY}" ]]; then
+            echo "Keepalive already ran today (${TODAY}), skipping."
+            exit 0
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           date -u +"%Y-%m-%d %H:%M:%S" > .keepalive
           git add .keepalive
-          git diff --staged --quiet || git commit -m "chore: keepalive $(date -u +%Y-%m-%d)"
+          git diff --staged --quiet || git commit -m "chore: keepalive ${TODAY}"
           git push || true
 
   # ── Detect latest Fedora kernel version ─────────────────────
