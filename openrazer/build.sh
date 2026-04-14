@@ -63,8 +63,7 @@ dnf install -y --setopt=install_weak_deps=False \
     python3-gobject \
     python3-pyudev \
     python3-daemonize \
-    python3-setproctitle \
-    rpmrebuild
+    python3-setproctitle
 ok "Build dependencies installed"
 
 # ── Setup rpmbuild dirs ───────────────────────────────────────
@@ -122,49 +121,6 @@ ok "Built RPMs:"
 for rpm in "${RPMS[@]}"; do
     say "  ${CYAN}◈${NC}  $(basename "$rpm")"
 done
-
-# ── Install kmod RPM, sign modules, repack ───────────────────
-info "Installing kmod RPM for signing..."
-KMOD_RPM="$(printf '%s\n' "${RPMS[@]}" | grep 'kmod-openrazer-' | head -1)"
-COMMON_RPM="$(printf '%s\n' "${RPMS[@]}" | grep 'openrazer-kmod-common-' | head -1)"
-[[ -n "${KMOD_RPM}" ]] || fail "kmod RPM not found"
-[[ -n "${COMMON_RPM}" ]] || fail "openrazer-kmod-common RPM not found"
-dnf install -y "${KMOD_RPM}" "${COMMON_RPM}"
-ok "kmod RPM installed"
-
-info "Signing openrazer modules..."
-SIGN_FILE="/usr/src/kernels/${KERNEL_VERSION}/scripts/sign-file"
-[[ -x "${SIGN_FILE}" ]] || fail "sign-file not found: ${SIGN_FILE}"
-
-for module in /usr/lib/modules/${KERNEL_VERSION}/extra/openrazer/*.ko*; do
-    if [[ "${module}" == *.xz ]]; then
-        xz -d --rm "${module}"; module="${module%.xz}"
-        "${SIGN_FILE}" sha256 /tmp/zodium-sign/private_key.priv /tmp/zodium-sign/public_key.der "${module}"
-        xz -C crc32 -f "${module}"
-    elif [[ "${module}" == *.zst ]]; then
-        zstd -d --rm "${module}"; module="${module%.zst}"
-        "${SIGN_FILE}" sha256 /tmp/zodium-sign/private_key.priv /tmp/zodium-sign/public_key.der "${module}"
-        zstd -f --rm "${module}"
-    else
-        "${SIGN_FILE}" sha256 /tmp/zodium-sign/private_key.priv /tmp/zodium-sign/public_key.der "${module}"
-    fi
-    ok "Signed: $(basename "${module}")"
-done
-ok "Modules signed"
-
-info "Repacking kmod RPM with signed modules..."
-REBUILT_DIR="${BUILDROOT}/rebuilt"
-mkdir -p "${REBUILT_DIR}"
-KMOD_PKG="$(rpm -q --queryformat '%{NAME}' "kmod-openrazer-${KERNEL_VERSION}" 2>/dev/null | head -1)"
-[[ -n "${KMOD_PKG}" ]] || fail "kmod package not found in RPM DB"
-RPMREBUILD_TMPDIR="${REBUILT_DIR}/tmp"
-mkdir -p "${RPMREBUILD_TMPDIR}"
-ln -sf / /tmp/buildroot
-HOME="${RPMREBUILD_TMPDIR}" rpmrebuild --additional=--buildroot=/tmp/buildroot --batch -d "${REBUILT_DIR}" "${KMOD_PKG}"
-mapfile -t REBUILT < <(find "${REBUILT_DIR}" -name 'kmod-openrazer-*.rpm')
-[[ ${#REBUILT[@]} -gt 0 ]] || fail "rpmrebuild produced no RPM"
-mv -f "${REBUILT[0]}" "${KMOD_RPM}"
-ok "kmod RPM repacked"
 
 # ── Verify module signatures ──────────────────────────────────
 info "Verifying module signatures..."

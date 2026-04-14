@@ -78,6 +78,15 @@ make -j%(nproc) driver KERNELDIR=/usr/src/kernels/%{kernel_version}
 # ================================================================
 %install
 
+# ── sign modules before packaging ────────────────────────────
+SIGN_FILE=/usr/src/kernels/%{kernel_version}/scripts/sign-file
+for module in driver/*.ko; do
+    ${SIGN_FILE} sha256 \
+        /tmp/zodium-sign/private_key.priv \
+        /tmp/zodium-sign/public_key.der \
+        "${module}"
+done
+
 # ── kmod — copy all 4 .ko files to extra/openrazer/ ──────────
 install -d %{buildroot}%{kernel_mod_dir}
 install -m 0644 driver/*.ko %{buildroot}%{kernel_mod_dir}/
