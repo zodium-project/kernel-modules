@@ -99,7 +99,7 @@ jobs:
             -e KERNEL_VERSION="${KERNEL_VERSION}" \
             -e ZODIUM_MOK_KEY="${{ secrets.ZODIUM_MOK_KEY }}" \
             -v "${{ github.workspace }}/mok-file/zodium-mok.der:/zodium-mok.der:ro" \
-            fedora:latest \
+            quay.io/fedora/fedora-bootc \
             bash /kmods-zodium/${{ matrix.kmod }}/build.sh
 
       - name: Verify RPMs
