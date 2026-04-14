@@ -113,8 +113,7 @@ ok "RPMs built"
 
 # ── Verify & list built RPMs ──────────────────────────────────
 info "Verifying built RPMs..."
-shopt -s globstar
-RPMS=("${BUILDROOT}"/RPMS/**/*.rpm)
+mapfile -t RPMS < <(find "${BUILDROOT}/RPMS" -name '*.rpm' | sort)
 [[ ${#RPMS[@]} -gt 0 ]] || fail "No RPMs found after build"
 
 ok "Built RPMs:"
@@ -124,7 +123,9 @@ done
 
 # ── Verify module signatures ──────────────────────────────────
 info "Verifying module signatures..."
-for rpm in "${RPMS[@]}"; do
+KMOD_RPM="$(printf '%s\n' "${RPMS[@]}" | grep 'kmod-openrazer-' | head -1)"
+[[ -n "${KMOD_RPM}" ]] || fail "kmod RPM not found for verification"
+for rpm in "${KMOD_RPM}"; do
     VERIFY_DIR="$(mktemp -d)"
     pushd "${VERIFY_DIR}" > /dev/null
     rpm2cpio "${rpm}" | cpio -idm --quiet

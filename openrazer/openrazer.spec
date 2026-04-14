@@ -22,6 +22,7 @@ Source0:        %{kmod_name}-%{kmod_version}.tar.gz
 BuildRequires:  kernel-devel
 BuildRequires:  gcc
 BuildRequires:  make
+BuildRequires:  openssl-devel
 
 Requires:       kernel
 Requires:       %{kmod_name}-kmod-common = %{kmod_version}
@@ -73,12 +74,7 @@ Razer peripherals.
 # builds: razerkbd.ko razermouse.ko razerkraken.ko razeraccessory.ko
 make -j%(nproc) driver KERNELDIR=/usr/src/kernels/%{kernel_version}
 
-# ================================================================
-#  Install
-# ================================================================
-%install
-
-# ── sign modules before packaging ────────────────────────────
+# ── sign modules (keys pre-staged by build.sh into /tmp/zodium-sign/) ──
 SIGN_FILE=/usr/src/kernels/%{kernel_version}/scripts/sign-file
 for module in driver/*.ko; do
     ${SIGN_FILE} sha256 \
@@ -86,6 +82,11 @@ for module in driver/*.ko; do
         /tmp/zodium-sign/public_key.der \
         "${module}"
 done
+
+# ================================================================
+#  Install
+# ================================================================
+%install
 
 # ── kmod — copy all 4 .ko files to extra/openrazer/ ──────────
 install -d %{buildroot}%{kernel_mod_dir}
