@@ -4,6 +4,7 @@
 
 # ── Disable debug package ─────────────────────────────────────
 %global debug_package %{nil}
+%global __strip /bin/true
 
 %define kmod_name       openrazer
 %define kernel_mod_dir  /usr/lib/modules/%{kernel_version}/extra/%{kmod_name}
