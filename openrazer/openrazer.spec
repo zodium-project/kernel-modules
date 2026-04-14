@@ -172,8 +172,8 @@ depmod -a %{kernel_version} || :
 #   pylib/setup.py   → name="openrazer"          → openrazer/
 /usr/lib/python3*/site-packages/openrazer/
 /usr/lib/python3*/site-packages/openrazer_daemon/
-/usr/lib/python3*/site-packages/openrazer*.egg-info/
-/usr/lib/python3*/site-packages/openrazer_daemon*.egg-info/
+/usr/lib/python3*/site-packages/openrazer-*.egg-info/
+/usr/lib/python3*/site-packages/openrazer_daemon-*.egg-info/
 
 # ================================================================
 #  Changelog
