@@ -145,6 +145,7 @@ ok "All modules verified signed"
 # ── Download companion packages ───────────────────────────────
 info "Downloading wl companion packages..."
 dnf download -y --destdir /output/ \
+    --arch x86_64 --arch noarch    \
     broadcom-wl
 ok "Companion packages downloaded"
 

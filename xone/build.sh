@@ -141,6 +141,7 @@ ok "All modules verified signed"
 # ── Download companion packages ───────────────────────────────
 info "Downloading xone companion packages..."
 dnf download -y --destdir /output/ \
+    --arch x86_64 --arch noarch    \
     xone-kmod-common
 ok "Companion packages downloaded"
 

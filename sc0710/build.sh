@@ -141,6 +141,7 @@ ok "All modules verified signed"
 # ── Download companion packages ───────────────────────────────
 info "Downloading sc0710 companion packages..."
 dnf download -y --destdir /output/ \
+    --arch x86_64 --arch noarch    \
     sc0710
 ok "Companion packages downloaded"
 

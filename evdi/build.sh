@@ -158,6 +158,7 @@ ok "All modules verified signed"
 # ── Download companion packages ───────────────────────────────
 info "Downloading evdi companion packages..."
 dnf download -y --destdir /output/ \
+    --arch x86_64 --arch noarch    \
     libevdi \
     displaylink
 ok "Companion packages downloaded"

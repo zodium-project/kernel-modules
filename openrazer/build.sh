@@ -138,6 +138,7 @@ ok "All modules verified signed"
 # ── Download companion packages ───────────────────────────────
 info "Downloading openrazer companion packages..."
 dnf download -y --destdir /output/ \
+    --arch x86_64 --arch noarch    \
     openrazer-kmod-common
 ok "Companion packages downloaded"
 

@@ -141,6 +141,7 @@ ok "All modules verified signed"
 # ── Download companion packages ───────────────────────────────
 info "Downloading hid-tmff2 companion packages..."
 dnf download -y --destdir /output/ \
+    --arch x86_64 --arch noarch    \
     hid-tmff2 \
     hid-tmff2-akmod-modules
 ok "Companion packages downloaded"

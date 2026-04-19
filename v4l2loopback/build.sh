@@ -142,7 +142,8 @@ ok "All modules verified signed"
 # ── Download companion packages ───────────────────────────────
 info "Downloading v4l2loopback companion packages..."
 dnf download -y --destdir /output/ \
-    v4l2loopback-akmod-modules \
+    --arch x86_64 --arch noarch    \
+    v4l2loopback-akmod-modules     \
     v4l2loopback
 ok "Companion packages downloaded"
 

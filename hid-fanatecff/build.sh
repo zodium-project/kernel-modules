@@ -141,6 +141,7 @@ ok "All modules verified signed"
 # ── Download companion packages ───────────────────────────────
 info "Downloading hid-fanatecff companion packages..."
 dnf download -y --destdir /output/ \
+    --arch x86_64 --arch noarch    \
     hid-fanatecff \
     hid-fanatecff-akmod-modules
 ok "Companion packages downloaded"

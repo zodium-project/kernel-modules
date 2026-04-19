@@ -141,6 +141,7 @@ ok "All modules verified signed"
 # ── Download companion packages ───────────────────────────────
 info "Downloading new-lg4ff companion packages..."
 dnf download -y --destdir /output/ \
+    --arch x86_64 --arch noarch    \
     new-lg4ff \
     new-lg4ff-akmod-modules
 ok "Companion packages downloaded"
