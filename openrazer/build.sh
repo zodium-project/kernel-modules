@@ -82,8 +82,7 @@ ok "akmodsbuild patched"
 
 # ── Install akmod source package ──────────────────────────────
 info "Installing akmod-openrazer..."
-dnf install -y --setopt=install_weak_deps=False openrazer-kmod-common openrazer-kmod
-dnf install -y --setopt=install_weak_deps=False akmod-openrazer openrazer-kmod-common
+dnf install -y --setopt=install_weak_deps=False akmod-openrazer
 ok "akmod-openrazer installed"
 
 # ── Build kmod ────────────────────────────────────────────────
