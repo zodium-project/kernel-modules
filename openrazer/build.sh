@@ -30,6 +30,8 @@ ok "System upgraded"
 
 # ── Detect kernel version ─────────────────────────────────────
 info "Detecting latest kernel version..."
+ARCH="$(rpm -E '%_arch')"
+RELEASE="$(rpm -E '%fedora')"
 KERNEL_VERSION="$(rpm -q kernel \
     --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}\n' \
     | sort -V | tail -1)"
@@ -82,7 +84,7 @@ ok "akmodsbuild patched"
 
 # ── Install akmod source package ──────────────────────────────
 info "Installing akmod-openrazer..."
-dnf install -y --setopt=install_weak_deps=False akmod-openrazer
+dnf install -y --setopt=install_weak_deps=False akmod-openrazer-*.fc"${RELEASE}"."${ARCH}"
 ok "akmod-openrazer installed"
 
 # ── Build kmod ────────────────────────────────────────────────
