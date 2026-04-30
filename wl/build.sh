@@ -42,9 +42,6 @@ dnf install -y --setopt=install_weak_deps=False dnf5-plugins
 ok "dnf5 plugins installed"
 
 # ── Add RPM Fusion repos ──────────────────────────────────────
-info "Adding RPM Fusion free repo..."
-dnf install -y --setopt=install_weak_deps=False \
-    "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm"
 
 info "Adding RPM Fusion nonfree repo..."
 dnf install -y --setopt=install_weak_deps=False \
