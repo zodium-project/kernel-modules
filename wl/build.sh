@@ -41,15 +41,15 @@ info "Installing dnf5 plugins..."
 dnf install -y --setopt=install_weak_deps=False dnf5-plugins
 ok "dnf5 plugins installed"
 
-# ── Add RPM Fusion repos ──────────────────────────────────────
+# ── Add Terra repos ───────────────────────────────────────────
 
-info "Adding RPM Fusion nonfree repo..."
-dnf install -y --setopt=install_weak_deps=False \
-    "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
-
-info "Reinstalling RPM Fusion repos..."
-dnf --refresh reinstall -y rpmfusion-free-release rpmfusion-nonfree-release
-ok "RPM Fusion repos ready"
+info "Adding Terra repo..."
+dnf install --nogpgcheck \
+    --repofrompath 'terra,https://repos.fyralabs.com/terra$releasever' \
+    terra-release -y
+dnf reinstall terra-release -y
+dnf --refresh makecache
+ok "Terra repo added"
 
 # ── Install build deps ────────────────────────────────────────
 info "Installing build dependencies for kernel: ${KERNEL_VERSION}..."
