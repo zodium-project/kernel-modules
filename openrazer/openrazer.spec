@@ -184,6 +184,6 @@ depmod -a %{kernel_version} || :
 #  Changelog
 # ================================================================
 %changelog
-* %(date "+%a %b %d %Y") kmods-zodium <zodium-project> - %{kmod_version}-1
-- Automated nightly build by kmods-zodium
+* %(date "+%a %b %d %Y") kernel-modules <zodium-project> - %{kmod_version}-1
+- Automated nightly build by kernel-modules
 - Kernel: %{kernel_version}

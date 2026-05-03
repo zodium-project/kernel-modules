@@ -88,7 +88,7 @@ cd "$WORK_DIR"
 
 info "Fetching ZFS release list..."
 curl -fLsS \
-    -H "User-Agent: kmods-zodium" \
+    -H "User-Agent: kernel-modules" \
     -H "Accept: application/vnd.github+json" \
     "https://api.github.com/repos/openzfs/zfs/releases" \
     -o zfs-releases.json
