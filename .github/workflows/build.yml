@@ -1,6 +1,6 @@
 # ================================================================
-#  kmods-zodium — nightly kmod build & release workflow
-#  github.com/zodium-project/kmods-zodium
+#  kernel-modules — nightly kmod build & release workflow
+#  github.com/zodium-project/kernel-modules
 # ================================================================
 
 name: Build kmods
@@ -81,7 +81,7 @@ jobs:
         kmod: [v4l2loopback, openrazer, nvidia, xpadneo, xone, wl, evdi, hid-fanatecff, sc0710, new-lg4ff, hid-tmff2, openzfs]
 
     steps:
-      - name: Checkout kmods-zodium
+      - name: Checkout kernel-modules
         uses: actions/checkout@v6
 
       - name: Create output directory
@@ -92,13 +92,13 @@ jobs:
           KERNEL_VERSION: ${{ needs.detect-kernel.outputs.kernel_version }}
         run: |
           docker run --rm \
-            -v "${{ github.workspace }}/${{ matrix.kmod }}:/kmods-zodium/${{ matrix.kmod }}:ro" \
+            -v "${{ github.workspace }}/${{ matrix.kmod }}:/kernel-modules/${{ matrix.kmod }}:ro" \
             -v "${{ github.workspace }}/output/${{ matrix.kmod }}:/output" \
             -e KERNEL_VERSION="${KERNEL_VERSION}" \
             -e ZODIUM_MOK_KEY="${{ secrets.ZODIUM_MOK_KEY }}" \
             -v "${{ github.workspace }}/mok-file/zodium-mok.der:/zodium-mok.der:ro" \
             quay.io/fedora/fedora-bootc:44 \
-            bash /kmods-zodium/${{ matrix.kmod }}/build.sh
+            bash /kernel-modules/${{ matrix.kmod }}/build.sh
 
       - name: Verify RPMs
         run: |
@@ -314,7 +314,7 @@ jobs:
             --repo ${{ github.repository }} \
             --title "kernel ${KERNEL_VERSION}" \
             --latest \
-            --notes "## kmods-zodium
+            --notes "## kernel-modules
 
           **kernel:** \`${KERNEL_VERSION}\`
           **updated:** \`$(date -u '+%Y-%m-%d %H:%M UTC')\`
@@ -362,7 +362,7 @@ jobs:
           TMPDIR=$(mktemp -d)
           find all-rpms -name '*.rpm' -exec cp {} "$TMPDIR/" \;
           createrepo_c \
-            --baseurl "https://github.com/zodium-project/kmods-zodium/releases/download/kernel-${KERNEL_VERSION}/" \
+            --baseurl "https://github.com/zodium-project/kernel-modules/releases/download/kernel-${KERNEL_VERSION}/" \
             "$TMPDIR"
 
           cp -r "$TMPDIR/repodata" "$REPODIR/"
