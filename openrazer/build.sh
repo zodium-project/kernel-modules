@@ -22,7 +22,7 @@ say "${MAGENTA}${BOLD}╚══════════════════�
 say ""
 
 # ── Paths ─────────────────────────────────────────────────────
-BUILDROOT="/kmods-zodium/rpmbuild"
+BUILDROOT="/kernel-modules/rpmbuild"
 
 # ── Upgrade system ────────────────────────────────────────────
 info "Upgrading system packages..."
@@ -92,7 +92,7 @@ ok "Source tarball created: openrazer-${OPENRAZER_VERSION}.tar.gz"
 
 # ── Copy spec ─────────────────────────────────────────────────
 info "Copying spec file..."
-cp /kmods-zodium/openrazer/openrazer.spec "${BUILDROOT}/SPECS/"
+cp /kernel-modules/openrazer/openrazer.spec "${BUILDROOT}/SPECS/"
 ok "Spec file copied"
 
 # ── Install signing keys ──────────────────────────────────────
