@@ -34,7 +34,7 @@ Provides HID drivers for Razer peripherals (keyboard, mouse, kraken headset,
 and accessories) via razerkbd, razermouse, razerkraken, razeraccessory.
 
 # ================================================================
-#  common subpackage — daemon, udev rules, plugdev group
+#  common subpackage — daemon, udev rules
 # ================================================================
 %package -n %{kmod_name}-kmod-common
 Summary:        OpenRazer daemon, udev rules and Python library
@@ -121,28 +121,6 @@ make -C daemon install DESTDIR=%{buildroot} PREFIX=%{_prefix}
 # call pylib/Makefile directly for same reason
 # installs openrazer Python package via setup.py into site-packages
 make -C pylib install DESTDIR=%{buildroot} PREFIX=%{_prefix}
-
-# ================================================================
-#  Scripts
-# ================================================================
-
-# ── Ensure plugdev group exists before udev rules land ────────
-%pre -n %{kmod_name}-kmod-common
-getent group plugdev > /dev/null || groupadd -r plugdev
-:
-
-# ── Reload udev rules after install ───────────────────────────
-%post -n %{kmod_name}-kmod-common
-udevadm control --reload-rules 2>/dev/null || :
-udevadm trigger            2>/dev/null || :
-
-# ── depmod on kmod install ────────────────────────────────────
-%post
-depmod -a %{kernel_version} || :
-
-# ── depmod on kmod uninstall ──────────────────────────────────
-%postun
-depmod -a %{kernel_version} || :
 
 # ================================================================
 #  Files
