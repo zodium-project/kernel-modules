@@ -338,7 +338,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: ferret-project/ferret-project.github.io
-          token: ${{ secrets.REPO_PAT }}
+          token: ${{ secrets.WEBSITE_REPO_PAT }}
           path: website
 
       - name: Install createrepo
