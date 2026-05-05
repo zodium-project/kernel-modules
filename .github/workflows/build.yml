@@ -1,6 +1,6 @@
 # ================================================================
 #  kernel-modules — nightly kmod build & release workflow
-#  github.com/zodium-project/kernel-modules
+#  github.com/ferret-project/kernel-modules
 # ================================================================
 
 name: Build kmods
@@ -337,7 +337,7 @@ jobs:
       - name: Checkout website repo
         uses: actions/checkout@v6
         with:
-          repository: zodium-project/zodium-project.github.io
+          repository: ferret-project/ferret-project.github.io
           token: ${{ secrets.REPO_PAT }}
           path: website
 
@@ -362,7 +362,7 @@ jobs:
           TMPDIR=$(mktemp -d)
           find all-rpms -name '*.rpm' -exec cp {} "$TMPDIR/" \;
           createrepo_c \
-            --baseurl "https://github.com/zodium-project/kernel-modules/releases/download/kernel-${KERNEL_VERSION}/" \
+            --baseurl "https://github.com/ferret-project/kernel-modules/releases/download/kernel-${KERNEL_VERSION}/" \
             "$TMPDIR"
 
           cp -r "$TMPDIR/repodata" "$REPODIR/"
