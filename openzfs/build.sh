@@ -225,12 +225,12 @@ ok "All runtime packages verified"
 
 # ── Install signing keys ──────────────────────────────────────
 info "Installing signing keys for Secure Boot..."
-[[ -n "${ZODIUM_MOK_KEY:-}" ]] || fail "ZODIUM_MOK_KEY env var not set"
-[[ -f /zodium-mok.der ]] || fail "/zodium-mok.der not found"
+[[ -n "${FERRET_SB_KEY:-}" ]] || fail "FERRET_SB_KEY env var not set"
+[[ -f /ferret-sb.der ]] || fail "/ferret-sb.der not found"
 mkdir -p /tmp/zodium-sign
-printf '%s\n' "${ZODIUM_MOK_KEY}" > /tmp/zodium-sign/private_key.priv
+printf '%s\n' "${FERRET_SB_KEY}" > /tmp/zodium-sign/private_key.priv
 chmod 600 /tmp/zodium-sign/private_key.priv
-cp /zodium-mok.der /tmp/zodium-sign/public_key.der
+cp /ferret-sb.der /tmp/zodium-sign/public_key.der
 ok "Signing keys installed"
 
 # ── Install all ZFS RPMs ──────────────────────────────────────

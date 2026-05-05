@@ -59,19 +59,19 @@ ok "Build dependencies installed"
 
 # ── Install signing keys for akmods ──────────────────────────
 info "Installing signing keys for Secure Boot..."
-[[ -n "${ZODIUM_MOK_KEY:-}" ]] || fail "ZODIUM_MOK_KEY env var not set"
-[[ -f /zodium-mok.der ]] || fail "/zodium-mok.der not found"
+[[ -n "${FERRET_SB_KEY:-}" ]] || fail "FERRET_SB_KEY env var not set"
+[[ -f /ferret-sb.der ]] || fail "/ferret-sb.der not found"
 
 mkdir -p /etc/pki/akmods/private /etc/pki/akmods/certs
 chown root:akmods /etc/pki/akmods/private /etc/pki/akmods/certs
 chmod 750 /etc/pki/akmods/private
 chmod 755 /etc/pki/akmods/certs
 
-printf '%s\n' "${ZODIUM_MOK_KEY}" > /etc/pki/akmods/private/private_key.priv
+printf '%s\n' "${FERRET_SB_KEY}" > /etc/pki/akmods/private/private_key.priv
 chown root:akmods /etc/pki/akmods/private/private_key.priv
 chmod 640 /etc/pki/akmods/private/private_key.priv
 
-cp /zodium-mok.der /etc/pki/akmods/certs/public_key.der
+cp /ferret-sb.der /etc/pki/akmods/certs/public_key.der
 chown root:akmods /etc/pki/akmods/certs/public_key.der
 chmod 640 /etc/pki/akmods/certs/public_key.der
 
